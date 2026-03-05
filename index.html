@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Nomor Surat Desa Rambatan Wetan</title>
+    <script src="jspdf.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.autotable.min.js"></script>
+    <style>
+        @media print {
+            .no-print { display: none !important; }
+            body { padding: 0; background: white; }
+            .print-header { display: block !important; text-align: center; margin-bottom: 20px; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { border: 1px solid black !important; padding: 8px; }
+        }
+        .print-header { display: none; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen p-4 md:p-8">
+
+    <div class="max-w-5xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
+        <!-- Header -->
+        <header class="bg-blue-800 text-white p-6 text-center">
+            <h1 class="text-2xl md:text-3xl font-bold uppercase tracking-wide">Data Nomor Urut Surat</h1>
+            <h2 class="text-xl">Pemerintah Desa Rambatan Wetan</h2>
+            <p class="text-sm opacity-80 mt-1">Sistem Administrasi Persuratan Digital</p>
+        </header>
+
+        <!-- Form Input -->
+        <div class="p-6 border-b no-print">
+            <div id="alert-box" class="hidden mb-4 p-4 bg-red-100 border-l-4 border-red-500 text-red-700 font-bold uppercase">
+                NOMOR INI SUDAH ADA! Tidak bisa disimpan.
+            </div>
+
+            <form id="surat-form" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Tanggal</label>
+                    <input type="date" id="tanggal" required class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Kode Klasifikasi</label>
+                    <input type="text" id="kode" placeholder="Contoh: 141" required class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Nomor Urut</label>
+                    <input type="number" id="urut" placeholder="001" required class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Perihal</label>
+                    <input type="text" id="perihal" placeholder="Keterangan Surat" required class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
+                <div class="md:col-span-4 flex gap-2 justify-end mt-2">
+                    <button type="button" onclick="resetForm()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition">Reset</button>
+                    <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded font-bold hover:bg-blue-700 transition">Simpan Data</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Tabel Data -->
+        <div class="p-6">
+            <div class="flex flex-wrap justify-between items-center mb-4 gap-2 no-print">
+                <h3 class="text-lg font-bold text-gray-800">Daftar Surat Tercatat</h3>
+                <div class="flex gap-2">
+                    <button onclick="exportToPDF()" class="flex items-center gap-1 px-3 py-1.5 bg-red-600 text-white rounded text-sm hover:bg-red-700">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 2l4.5 4.5H11V4z"/></svg>
+                        Simpan PDF
+                    </button>
+                    <button onclick="window.print()" class="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z"/></svg>
+                        Cetak / Print
+                    </button>
+                </div>
+            </div>
+
+            <!-- Header khusus print -->
+            <div class="print-header">
+                <h1 style="font-size: 24px; font-weight: bold;">DATA NOMOR URUT SURAT</h1>
+                <h2 style="font-size: 20px;">PEMERINTAH DESA RAMBATAN WETAN</h2>
+                <hr style="margin: 10px 0; border: 1px solid black;">
+            </div>
+
+            <div class="overflow-x-auto">
+                <table id="table-surat" class="w-full border-collapse border border-gray-200">
+                    <thead>
+                        <tr class="bg-gray-50 text-left">
+                            <th class="border p-3 text-sm font-bold text-gray-700">No.</th>
+                            <th class="border p-3 text-sm font-bold text-gray-700">Tanggal</th>
+                            <th class="border p-3 text-sm font-bold text-gray-700">Nomor Surat</th>
+                            <th class="border p-3 text-sm font-bold text-gray-700">Perihal</th>
+                            <th class="border p-3 text-sm font-bold text-gray-700 no-print">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <!-- Data akan muncul di sini -->
+                    </tbody>
+                </table>
+                <div id="empty-state" class="text-center py-10 text-gray-500">
+                    Belum ada data nomor surat.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let daftarSurat = JSON.parse(localStorage.getItem('surat_rambatan_wetan')) || [];
+
+        const form = document.getElementById('surat-form');
+        const tableBody = document.getElementById('table-body');
+        const alertBox = document.getElementById('alert-box');
+        const emptyState = document.getElementById('empty-state');
+
+        // Set default date ke hari ini
+        document.getElementById('tanggal').valueAsDate = new Date();
+
+        function updateTable() {
+            tableBody.innerHTML = '';
+            
+            if (daftarSurat.length === 0) {
+                emptyState.classList.remove('hidden');
+            } else {
+                emptyState.classList.add('hidden');
+                
+                // Urutkan berdasarkan nomor urut (opsional)
+                daftarSurat.sort((a, b) => parseInt(a.urut) - parseInt(b.urut));
+
+                daftarSurat.forEach((item, index) => {
+                    const row = document.createElement('tr');
+                    row.className = "hover:bg-gray-50 transition";
+                    row.innerHTML = `
+                        <td class="border p-3 text-sm">${index + 1}</td>
+                        <td class="border p-3 text-sm">${formatTanggal(item.tanggal)}</td>
+                        <td class="border p-3 text-sm font-mono">${item.kode}/${item.urut}</td>
+                        <td class="border p-3 text-sm">${item.perihal}</td>
+                        <td class="border p-3 text-sm no-print text-center">
+                            <button onclick="hapusData('${item.id}')" class="text-red-600 hover:text-red-800 font-semibold">Hapus</button>
+                        </td>
+                    `;
+                    tableBody.appendChild(row);
+                });
+            }
+            localStorage.setItem('surat_rambatan_wetan', JSON.stringify(daftarSurat));
+        }
+
+        function formatTanggal(dateStr) {
+            const options = { year: 'numeric', month: 'long', day: 'numeric' };
+            return new Date(dateStr).toLocaleDateString('id-ID', options);
+        }
+
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const tanggal = document.getElementById('tanggal').value;
+            const kode = document.getElementById('kode').value;
+            const urut = document.getElementById('urut').value;
+            const perihal = document.getElementById('perihal').value;
+
+            // Validasi Nomor Ganda (Cek kombinasi kode dan nomor urut)
+            const isDuplicate = daftarSurat.some(s => s.kode === kode && s.urut === urut);
+
+            if (isDuplicate) {
+                alertBox.classList.remove('hidden');
+                setTimeout(() => alertBox.classList.add('hidden'), 5000);
+                return;
+            }
+
+            const newData = {
+                id: Date.now().toString(),
+                tanggal,
+                kode,
+                urut,
+                perihal
+            };
+
+            daftarSurat.push(newData);
+            updateTable();
+            resetForm();
+            alertBox.classList.add('hidden');
+        });
+
+        function hapusData(id) {
+            if (confirm('Apakah Anda yakin ingin menghapus data ini?')) {
+                daftarSurat = daftarSurat.filter(s => s.id !== id);
+                updateTable();
+            }
+        }
+
+        function resetForm() {
+            form.reset();
+            document.getElementById('tanggal').valueAsDate = new Date();
+        }
+
+        async function exportToPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    // Judul
+    doc.setFontSize(18);
+    doc.text("DATA NOMOR URUT SURAT", 105, 20, { align: "center" });
+    doc.setFontSize(14);
+    doc.text("DESA RAMBATAN WETAN", 105, 30, { align: "center" });
+    
+    // Garis Pemisah
+    doc.line(20, 35, 190, 35);
+
+    // Isi Data (Sederhana)
+    let y = 45;
+    doc.setFontSize(10);
+    doc.text("No | Tanggal | Nomor Surat | Perihal", 20, y);
+    doc.line(20, y+2, 190, y+2);
+    
+    y += 10;
+    daftarSurat.forEach((item, index) => {
+        const teks = `${index + 1}. | ${item.tanggal} | ${item.kode}/${item.urut} | ${item.perihal}`;
+        doc.text(teks, 20, y);
+        y += 10;
+        
+        // Jika halaman penuh, buat halaman baru
+        if (y > 280) {
+            doc.addPage();
+            y = 20;
+        }
+    });
+
+    // Simpan file
+    doc.save(`Surat_Desa_${Date.now()}.pdf`);
+    alert("PDF Sedang diunduh, silakan cek folder Download Anda.");
+}
+        // Jalankan saat pertama kali load
+        window.onload = updateTable;
+    </script>
+</body>
+</html>
