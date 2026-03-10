@@ -98,8 +98,8 @@
     </div>
 
     <script>
-        // URL Google Apps Script Anda
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzekIbO8rOfthWxtkf7fRlexr4aipJ2UmgLoYLwyecKedgwP_Cy7wZYHZ1mga5g6mKErQ/exec";
+        // URL Google Apps Script terbaru yang Anda berikan
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwSu2H5GN0VUS2Zp5E6kHvDkxPIzyeCOfbSXI395iUkGjvMcOub9zHFufirKOu7uC3eug/exec";
 
         let daftarSurat = [];
         const form = document.getElementById('surat-form');
@@ -135,7 +135,7 @@
                 // Membuat elemen script untuk JSONP (melewati batasan CORS)
                 const script = document.createElement('script');
                 script.id = 'jsonp-fetcher';
-                // Menambahkan parameter t untuk cache-busting dan callback untuk Apps Script
+                // Menambahkan parameter callback untuk Apps Script dan t untuk cache-busting
                 script.src = `${SCRIPT_URL}?callback=handleResponse&t=${Date.now()}`;
                 
                 script.onerror = () => {
@@ -167,6 +167,7 @@
                 emptyState.innerText = "Belum ada data di Google Sheets.";
             } else {
                 emptyState.classList.add('hidden');
+                // Urutkan berdasarkan nomor urut secara default
                 daftarSurat.sort((a, b) => (parseInt(a.urut) || 0) - (parseInt(b.urut) || 0));
                 
                 daftarSurat.forEach((item, index) => {
@@ -211,7 +212,7 @@
 
             loading.style.display = 'flex';
             try {
-                // Untuk pengiriman data, mode 'no-cors' paling aman di lingkungan iframe
+                // Mengirim data menggunakan mode 'no-cors' (paling stabil untuk Apps Script POST)
                 await fetch(SCRIPT_URL, {
                     method: 'POST',
                     mode: 'no-cors',
@@ -223,7 +224,7 @@
                 form.reset();
                 document.getElementById('tanggal').valueAsDate = new Date();
                 
-                // Jeda sebentar agar Apps Script memproses baru muat ulang via JSONP
+                // Jeda 3 detik agar database terupdate sebelum muat ulang
                 setTimeout(refreshData, 3000);
             } catch (err) {
                 console.error("Submit Error:", err);
