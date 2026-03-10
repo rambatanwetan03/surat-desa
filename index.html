@@ -3,512 +3,508 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Sistem Nomor Surat Desa Rambatan Wetan</title>
+    <title>E-Penomoran Desa Rambatan Wetan</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
-        
-        body { font-family: 'Inter', sans-serif; }
-
-        @media print {
-            .no-print { display: none !important; }
-            .print-only { display: block !important; }
-            body { background: white !important; }
-        }
-
-        .loading-overlay {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(255,255,255,0.9);
-            z-index: 9999;
-            justify-content: center; align-items: center;
-        }
-
-        /* Responsif Form Controls */
-        input, select, button {
-            font-size: 16px !important; /* Mencegah zoom otomatis di iPhone */
-            min-height: 52px;
-        }
-
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e3a8a; border-radius: 10px; }
-
-        .card-shadow { box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); }
-        
-        #custom-alert, #confirm-modal {
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; overflow-x: hidden; }
+        .btn-touch { min-height: 48px; }
+        .modal-overlay {
             display: none;
             position: fixed;
             inset: 0;
-            background: rgba(15, 23, 42, 0.75);
-            backdrop-filter: blur(4px);
-            z-index: 5000;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 9999;
             align-items: center;
             justify-content: center;
-            padding: 20px;
+            padding: 1rem;
+        }
+        @media (max-width: 640px) {
+            input, select { font-size: 16px !important; }
         }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen text-slate-900">
 
-    <!-- Modal Alert -->
-    <div id="custom-alert" class="no-print">
-        <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl text-center">
-            <div id="alert-icon" class="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-            </div>
-            <h3 class="text-xl font-bold mb-2">Informasi</h3>
-            <p id="alert-message" class="text-slate-500 mb-6">Pesan.</p>
-            <button onclick="closeAlert()" class="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold uppercase tracking-widest hover:bg-black transition-all">OK</button>
+    <!-- Modal Notifikasi -->
+    <div id="msg-modal" class="modal-overlay">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl text-center">
+            <div id="msg-icon" class="mb-4 flex justify-center"></div>
+            <h3 id="msg-title" class="text-xl font-bold mb-2">Pemberitahuan</h3>
+            <p id="msg-body" class="text-slate-600 mb-6 text-sm"></p>
+            <button onclick="closeMsg()" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700">Tutup</button>
         </div>
-    </div>
-
-    <!-- Modal Konfirmasi Reset -->
-    <div id="confirm-modal" class="no-print">
-        <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl text-center border-t-8 border-red-500">
-            <h3 class="text-xl font-black text-red-600 mb-2 uppercase">Hapus Semua Data?</h3>
-            <p class="text-slate-500 text-sm mb-6">Tindakan ini tidak bisa dibatalkan. Semua arsip penomoran akan hilang selamanya.</p>
-            <div class="grid grid-cols-2 gap-3">
-                <button onclick="closeConfirm()" class="bg-slate-100 py-3 rounded-2xl font-bold text-slate-600">Batal</button>
-                <button onclick="executeReset()" class="bg-red-600 text-white py-3 rounded-2xl font-bold">Ya, Hapus Semua</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Loading Overlay -->
-    <div id="loading" class="loading-overlay flex-col no-print">
-        <div class="animate-spin rounded-full h-14 w-14 border-t-4 border-b-4 border-blue-900 mb-4"></div>
-        <p class="text-blue-900 font-bold text-xs uppercase tracking-[0.2em]">Memproses Data...</p>
     </div>
 
     <!-- Login Screen -->
-    <div id="login-screen" class="fixed inset-0 bg-slate-900 flex items-center justify-center z-[2000] p-4">
-        <div class="bg-white p-8 md:p-12 rounded-[2.5rem] shadow-2xl w-full max-w-md transition-all">
-            <div class="text-center mb-10">
-                <div class="bg-blue-600 w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg rotate-6">
-                    <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v4h8z"></path></svg>
+    <div id="login-screen" class="fixed inset-0 bg-blue-900 flex items-center justify-center z-[5000] p-4">
+        <div class="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-md">
+            <div class="text-center mb-8">
+                <div class="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-4 text-blue-600">
+                    <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v4h8z"></path></svg>
                 </div>
-                <h2 class="text-3xl font-extrabold text-slate-800 tracking-tight">E-Penomoran</h2>
-                <p class="text-slate-400 font-medium">Desa Rambatan Wetan</p>
+                <h2 class="text-2xl font-black text-blue-900 uppercase tracking-tighter">E-Penomoran</h2>
+                <p class="text-slate-400 text-xs font-bold uppercase tracking-widest">Desa Rambatan Wetan</p>
             </div>
             
-            <form id="login-form" class="space-y-6">
+            <form id="login-form" class="space-y-5">
                 <div>
-                    <label class="block text-xs font-bold text-slate-400 uppercase mb-2 ml-1">Username</label>
-                    <input type="text" id="username" required class="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-blue-500 focus:bg-white outline-none transition-all" placeholder="Masukkan username">
+                    <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Username</label>
+                    <input type="text" id="username" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all" placeholder="Masukkan Username">
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-slate-400 uppercase mb-2 ml-1">Password</label>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Password</label>
                     <div class="relative">
-                        <input type="password" id="password" required class="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-blue-500 focus:bg-white outline-none transition-all" placeholder="••••••••">
-                        <button type="button" onclick="togglePassword()" class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-600">
-                            <svg id="eye-icon" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                        <input type="password" id="password" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all" placeholder="Masukkan Password">
+                        <button type="button" onclick="togglePass()" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                            <svg id="eye-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                         </button>
                     </div>
                 </div>
-                <div id="login-error" class="hidden text-red-500 text-xs font-bold bg-red-50 p-4 rounded-2xl text-center">Kredensial salah!</div>
-                <button type="submit" class="w-full bg-blue-600 text-white py-5 rounded-2xl font-black uppercase tracking-widest hover:bg-blue-700 shadow-xl transition-all active:scale-95">Masuk Sekarang</button>
+                <button type="submit" class="w-full bg-blue-600 text-white py-4 rounded-xl font-black uppercase tracking-wider hover:bg-blue-700 transition shadow-lg btn-touch">Masuk Sistem</button>
+                <p id="error-text" class="hidden text-center text-red-500 text-xs font-bold mt-2 italic">Username atau Password salah!</p>
             </form>
         </div>
     </div>
 
-    <!-- Main Content -->
-    <div id="app-container" class="hidden max-w-6xl mx-auto md:my-10 no-print">
-        <!-- Header Section -->
-        <header class="bg-blue-900 text-white p-6 md:p-10 md:rounded-t-[3rem] shadow-2xl flex flex-col md:flex-row justify-between items-center gap-6">
-            <div class="text-center md:text-left">
-                <h1 class="text-2xl md:text-4xl font-black tracking-tighter">SISTEM PENOMORAN</h1>
-                <p class="text-blue-300 font-semibold tracking-widest uppercase text-[10px] md:text-xs">Kantor Desa Rambatan Wetan</p>
-            </div>
-            <div class="flex items-center gap-4">
-                <div class="bg-white/10 px-4 py-2 rounded-full border border-white/20 hidden sm:block">
-                    <span id="status-dot" class="inline-block h-2 w-2 rounded-full bg-yellow-500 mr-2"></span>
-                    <span id="status-text" class="text-[10px] font-bold uppercase tracking-wider">Loading...</span>
+    <!-- Main App Container -->
+    <div id="app-container" class="hidden pb-20">
+        <nav class="bg-blue-900 text-white p-4 sticky top-0 z-40 shadow-xl">
+            <div class="max-w-6xl mx-auto flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="hidden sm:block w-8 h-8 bg-blue-700 rounded-lg flex items-center justify-center text-xs font-black">RW</div>
+                    <div>
+                        <h1 class="font-black text-sm leading-tight uppercase">Admin Penomoran</h1>
+                        <p class="text-[9px] text-blue-300 font-bold uppercase tracking-widest">Rambatan Wetan</p>
+                    </div>
                 </div>
-                <button onclick="logout()" class="bg-red-500 hover:bg-red-600 px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg transition-all active:scale-90">Keluar</button>
-            </div>
-        </header>
-
-        <!-- Tool Bar -->
-        <div class="bg-white p-4 border-b flex flex-wrap items-center justify-between gap-4 sticky top-0 z-50">
-            <div class="flex gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0 custom-scrollbar">
-                <button onclick="cleanupDuplicates()" class="whitespace-nowrap bg-amber-50 text-amber-700 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase border border-amber-200 hover:bg-amber-100 transition shadow-sm">Bersihkan Ganda</button>
-                <button onclick="backupData()" class="whitespace-nowrap bg-slate-50 text-slate-600 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase border border-slate-200 hover:bg-slate-100 transition">Backup JSON</button>
-                <button onclick="downloadFullPDF()" class="whitespace-nowrap bg-indigo-50 text-indigo-700 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase border border-indigo-200 hover:bg-indigo-100 transition">Unduh PDF</button>
-                <button onclick="openReset()" class="whitespace-nowrap bg-red-50 text-red-600 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase border border-red-200 hover:bg-red-100 transition">Reset Semua</button>
-            </div>
-        </div>
-
-        <!-- Input Form Section -->
-        <div class="bg-white p-6 md:p-10 border-b card-shadow relative z-10">
-            <form id="surat-form" class="grid grid-cols-1 md:grid-cols-12 gap-6">
-                <div class="md:col-span-4">
-                    <label class="block text-[10px] font-black text-slate-400 uppercase mb-3 tracking-widest">Tgl Surat</label>
-                    <input type="date" id="tanggal" required class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-blue-500 outline-none transition-all font-semibold">
-                </div>
-                <div class="md:col-span-4">
-                    <label class="block text-[10px] font-black text-slate-400 uppercase mb-3 tracking-widest">Klasifikasi</label>
-                    <select id="kategori-utama" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-blue-500 outline-none transition-all font-semibold">
-                        <option value="">-- Pilih --</option>
-                    </select>
-                </div>
-                <div class="md:col-span-4">
-                    <label class="block text-[10px] font-black text-slate-400 uppercase mb-3 tracking-widest">Jenis Surat</label>
-                    <select id="uraian-surat" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-blue-500 outline-none transition-all font-semibold">
-                        <option value="">-- Pilih --</option>
-                    </select>
-                </div>
-
-                <div class="md:col-span-3">
-                    <label class="block text-[10px] font-black text-slate-400 uppercase mb-3 tracking-widest">Kode</label>
-                    <input type="text" id="kode" readonly class="w-full p-4 bg-blue-50 border-2 border-blue-100 rounded-2xl text-blue-900 font-extrabold text-center text-lg shadow-inner" placeholder="XXX">
-                </div>
-                <div class="md:col-span-3">
-                    <label class="block text-[10px] font-black text-slate-400 uppercase mb-3 tracking-widest">Nomor Urut</label>
-                    <input type="number" id="urut" required class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-blue-500 outline-none text-center text-lg font-extrabold" placeholder="001">
-                </div>
-                <div class="md:col-span-6">
-                    <label class="block text-[10px] font-black text-slate-400 uppercase mb-3 tracking-widest">Perihal</label>
-                    <input type="text" id="perihal" required class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-blue-500 outline-none font-medium" placeholder="Ketik keterangan perihal surat...">
-                </div>
-
-                <div class="md:col-span-12 mt-4">
-                    <button type="submit" class="w-full bg-emerald-600 text-white py-5 rounded-[1.5rem] font-black uppercase tracking-[0.2em] hover:bg-emerald-700 shadow-xl transition transform active:scale-[0.98]">Terbitkan Nomor Surat</button>
-                </div>
-            </form>
-        </div>
-
-        <!-- Table Section -->
-        <div class="bg-white md:rounded-b-[3rem] p-6 md:p-10 shadow-inner">
-            <div class="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
-                <h3 class="text-xl font-black text-slate-800 uppercase italic border-l-8 border-blue-600 pl-4 tracking-tight">Data Arsip Penomoran</h3>
-                <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-100 px-4 py-2 rounded-full">
-                    Total: <span id="count-total" class="text-blue-600">0</span> Surat
+                <div class="flex items-center gap-2">
+                    <button onclick="logout()" class="bg-red-500/20 hover:bg-red-500 border border-red-500/50 text-red-100 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all">LOGOUT</button>
                 </div>
             </div>
+        </nav>
 
-            <div class="overflow-hidden rounded-3xl border border-slate-200">
-                <div class="overflow-x-auto custom-scrollbar">
-                    <table class="w-full min-w-[750px] text-left border-collapse" id="main-table">
-                        <thead>
-                            <tr class="bg-slate-50 border-b-2 border-slate-100">
-                                <th class="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center w-16">No</th>
-                                <th class="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Tanggal</th>
-                                <th class="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Nomor Surat</th>
-                                <th class="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Perihal</th>
-                                <th class="p-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Aksi</th>
+        <main class="max-w-6xl mx-auto p-4 space-y-4">
+            <!-- Form Input -->
+            <div class="bg-white rounded-3xl shadow-sm p-6 border border-slate-200">
+                <form id="surat-form" class="grid grid-cols-1 md:grid-cols-12 gap-5">
+                    <div class="md:col-span-3">
+                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tanggal Surat</label>
+                        <input type="date" id="tgl" required class="w-full p-3.5 bg-slate-50 rounded-xl border-none ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 transition-all font-semibold">
+                    </div>
+                    <div class="md:col-span-6">
+                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Klasifikasi Surat</label>
+                        <select id="kat" required class="w-full p-3.5 bg-slate-50 rounded-xl border-none ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 transition-all font-semibold">
+                            <option value="">-- Pilih Klasifikasi --</option>
+                            <optgroup label="100 - PEMERINTAHAN UMUM">
+                                <option value="100.01">100.01 - Surat Umum</option>
+                                <option value="100.02">100.02 - Undangan</option>
+                                <option value="100.03">100.03 - Surat Edaran</option>
+                                <option value="110.01">110.01 - Keputusan Kepala Desa</option>
+                                <option value="110.02">110.02 - Peraturan Kepala Desa</option>
+                                <option value="120.01">120.01 - Data Perangkat Desa</option>
+                                <option value="120.02">120.02 - Evaluasi Perangkat</option>
+                                <option value="130.01">130.01 - Rapat BPD</option>
+                                <option value="140.01">140.01 - LPM</option>
+                                <option value="140.02">140.02 - PKK</option>
+                                <option value="140.03">140.03 - Karang Taruna</option>
+                                <option value="140.04">140.04 - RT/RW</option>
+                                <option value="150.01">150.01 - Kerja Sama Antar Desa</option>
+                                <option value="160.01">160.01 - Surat Masuk</option>
+                                <option value="160.02">160.02 - Surat Keluar</option>
+                                <option value="160.03">160.03 - Arsip Aktif</option>
+                                <option value="160.04">160.04 - Arsip Inaktif</option>
+                                <option value="170.01">170.01 - Dokumentasi dan Publikasi Desa</option>
+                                <option value="180.01">180.01 - Pengaduan Masyarakat</option>
+                            </optgroup>
+                            <optgroup label="200 - POLITIK & KEAMANAN">
+                                <option value="200.01">200.01 - Umum</option>
+                                <option value="210.01">210.01 - Pilkades</option>
+                                <option value="210.02">210.02 - Pemilu</option>
+                                <option value="220.01">220.01 - Penertiban</option>
+                                <option value="230.01">230.01 - Linmas</option>
+                                <option value="240.01">240.01 - Konflik Sosial</option>
+                                <option value="240.02">240.02 - Mediasi</option>
+                            </optgroup>
+                            <optgroup label="300 - KEPEGAWAIAN">
+                                <option value="300.01">300.01 - Data Kepegawaian</option>
+                                <option value="310.01">310.01 - Pengangkatan</option>
+                                <option value="310.02">310.02 - Pemberhentian</option>
+                                <option value="320.01">320.01 - SK Perangkat Desa</option>
+                                <option value="330.01">330.01 - Cuti</option>
+                                <option value="330.02">330.02 - Disiplin</option>
+                                <option value="340.01">340.01 - Penghasilan Tetap</option>
+                                <option value="340.02">340.02 - Tunjangan</option>
+                            </optgroup>
+                            <optgroup label="400 - KESEJAHTERAAN RAKYAT">
+                                <option value="400.01">400.01 - Umum</option>
+                                <option value="410.01">410.01 - Bantuan Pendidikan</option>
+                                <option value="410.02">410.02 - Beasiswa</option>
+                                <option value="420.01">420.01 - Posyandu</option>
+                                <option value="420.02">420.02 - Program Kesehatan</option>
+                                <option value="430.01">430.01 - Bantuan Sosial</option>
+                                <option value="430.02">430.02 - BLT</option>
+                                <option value="440.01">440.01 - Kegiatan Keagamaan</option>
+                                <option value="450.01">450.01 - Olahraga</option>
+                                <option value="450.02">450.02 - Kesenian</option>
+                            </optgroup>
+                            <optgroup label="470 - KEPENDUDUKAN">
+                                <option value="470.01">470.01 - Data Penduduk</option>
+                                <option value="471.01">471.01 - Pengantar KTP</option>
+                                <option value="472.01">472.01 - Pengantar KK</option>
+                                <option value="473.01">473.01 - Surat Pindah</option>
+                                <option value="474.01">474.01 - Surat Kelahiran</option>
+                                <option value="475.01">475.01 - Surat Kematian</option>
+                                <option value="476.01">476.01 - Surat Domisili</option>
+                                <option value="477.01">477.01 - SKTM</option>
+                                <option value="477.02">477.02 - SKTM Sekolah</option>
+                                <option value="477.03">477.03 - SKTM Berobat</option>
+                                <option value="479.02">479.02 - Pengantar Nikah</option>
+                                <option value="479.03">479.03 - Asal Usul</option>
+                                <option value="479.04">479.04 - Keterangan Orang Tua</option>
+                            </optgroup>
+                            <optgroup label="500 - PEREKONOMIAN">
+                                <option value="500.01">500.01 - Umum</option>
+                                <option value="510.01">510.01 - Bantuan Pertanian</option>
+                                <option value="520.01">520.01 - Perdagangan</option>
+                                <option value="530.01">530.01 - UMKM</option>
+                                <option value="540.01">540.01 - Perikanan</option>
+                                <option value="540.02">540.02 - Peternakan</option>
+                            </optgroup>
+                            <optgroup label="600 - PEMBANGUNAN">
+                                <option value="600.01">600.01 - Umum</option>
+                                <option value="610.01">610.01 - Kelistrikan</option>
+                                <option value="610.02">610.02 - Air Bersih</option>
+                                <option value="610.03">610.03 - PJU</option>
+                                <option value="620.01">620.01 - Pembangunan Jalan</option>
+                                <option value="620.02">620.02 - Perbaikan Jalan</option>
+                                <option value="620.03">620.03 - Jembatan</option>
+                                <option value="630.01">630.01 - Irigasi</option>
+                                <option value="640.01">640.01 - Perumahan</option>
+                                <option value="650.01">650.01 - Drainase</option>
+                                <option value="660.01">660.01 - Sarana Pendidikan</option>
+                                <option value="670.01">670.01 - Sarana Kesehatan</option>
+                            </optgroup>
+                            <optgroup label="700 - KEUANGAN">
+                                <option value="700.01">700.01 - Umum</option>
+                                <option value="710.01">710.01 - APBDes Awal</option>
+                                <option value="710.02">710.02 - Perubahan APBDes</option>
+                                <option value="720.01">720.01 - ADD</option>
+                                <option value="720.02">720.02 - Dana Desa</option>
+                                <option value="730.01">730.01 - Laporan Realisasi</option>
+                                <option value="740.01">740.01 - Inventaris Aset</option>
+                                <option value="750.01">750.01 - Pajak dan Retribusi Desa</option>
+                                <option value="760.01">760.01 - Kerjasama Keuangan</option>
+                            </optgroup>
+                            <optgroup label="800 - PERTANAHAN">
+                                <option value="800.01">800.01 - Umum</option>
+                                <option value="810.01">810.01 - Tanah Kas Desa</option>
+                                <option value="820.01">820.01 - Letter C</option>
+                                <option value="830.01">830.01 - Sengketa Tanah</option>
+                                <option value="830.02">830.02 - Mediasi Tanah</option>
+                                <option value="840.01">840.01 - Sertifikat Tanah Program Pemerintah</option>
+                                <option value="850.01">850.01 - Inventaris Tanah Desa</option>
+                            </optgroup>
+                            <optgroup label="900 - LAIN-LAIN">
+                                <option value="900.01">900.01 - Umum</option>
+                                <option value="910.01">910.01 - Bencana Alam</option>
+                                <option value="910.02">910.02 - Tanggap Darurat</option>
+                                <option value="920.01">920.01 - Hibah</option>
+                                <option value="920.02">920.02 - Bantuan Sosial</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                    <div class="md:col-span-3">
+                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">No Urut</label>
+                        <input type="number" id="urut" required class="w-full p-3.5 bg-slate-50 rounded-xl border-none ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 transition-all font-bold text-blue-700" placeholder="Contoh: 001">
+                    </div>
+                    <div class="md:col-span-12">
+                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Perihal / Keterangan Surat</label>
+                        <input type="text" id="perihal" required class="w-full p-3.5 bg-slate-50 rounded-xl border-none ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 transition-all font-semibold" placeholder="Ketik keterangan perihal surat di sini...">
+                    </div>
+                    <div class="md:col-span-12">
+                        <button type="submit" class="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black uppercase shadow-lg hover:bg-emerald-700 transition-all btn-touch">Simpan & Cetak Nomor</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Toolbar Aksi -->
+            <div class="flex flex-wrap items-center gap-3">
+                <button onclick="downloadPDF()" class="bg-indigo-600 text-white px-5 py-3 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-indigo-700 transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    UNDUH PDF
+                </button>
+                <button onclick="backupData()" class="bg-amber-500 text-white px-5 py-3 rounded-xl text-xs font-bold hover:bg-amber-600 transition">BACKUP JSON</button>
+                <label class="cursor-pointer bg-slate-200 text-slate-700 px-5 py-3 rounded-xl text-xs font-bold hover:bg-slate-300 transition">
+                    RESTORE JSON
+                    <input type="file" id="restore-input" class="hidden" accept=".json" onchange="restoreData(event)">
+                </label>
+                <button onclick="confirmReset()" class="bg-red-50 text-red-600 px-5 py-3 rounded-xl text-xs font-bold hover:bg-red-100 transition ml-auto">RESET SEMUA</button>
+            </div>
+
+            <!-- Tabel Data -->
+            <div class="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="p-5 border-b border-slate-100 flex justify-between items-center">
+                    <h3 class="font-black text-slate-400 text-[10px] uppercase tracking-widest">Data Penomoran Terakhir</h3>
+                    <div class="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-[10px] font-bold uppercase">Total: <span id="counter">0</span></div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead class="bg-slate-50">
+                            <tr>
+                                <th class="p-4 text-[10px] font-bold text-slate-400 uppercase">Tgl</th>
+                                <th class="p-4 text-[10px] font-bold text-slate-400 uppercase">Nomor</th>
+                                <th class="p-4 text-[10px] font-bold text-slate-400 uppercase">Perihal</th>
+                                <th class="p-4 text-center text-[10px] font-bold text-slate-400 uppercase">Aksi</th>
                             </tr>
                         </thead>
-                        <tbody id="table-body" class="divide-y divide-slate-100 font-medium">
-                            <!-- Data injected here -->
-                        </tbody>
+                        <tbody id="table-body" class="text-sm divide-y divide-slate-50"></tbody>
                     </table>
                 </div>
-                <div id="empty-state" class="p-20 text-center text-slate-300 italic flex flex-col items-center">
-                    <svg class="w-16 h-16 mb-4 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
-                    <span>Belum ada data terekam di database cloud.</span>
-                </div>
             </div>
+        </main>
+    </div>
+
+    <!-- Global Loader -->
+    <div id="loader" class="hidden fixed inset-0 bg-white/80 z-[6000] flex items-center justify-center">
+        <div class="text-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-4 border-blue-900 border-t-transparent mx-auto mb-2"></div>
+            <p class="text-[10px] font-bold text-blue-900 uppercase">Memproses Data...</p>
         </div>
     </div>
 
     <script>
-        // Database Klasifikasi
-        const klasifikasiData = {
-            "100 – PEMERINTAHAN UMUM": [
-                { kode: "100.01", uraian: "Surat Umum" }, { kode: "100.02", uraian: "Undangan" }, { kode: "110.01", uraian: "Keputusan Kepala Desa" }, { kode: "110.02", uraian: "Peraturan Desa" }
-            ],
-            "400 – KESEJAHTERAAN RAKYAT": [
-                { kode: "430.01", uraian: "Bantuan Sosial" }, { kode: "440.01", uraian: "Kesehatan" }, { kode: "450.01", uraian: "Keagamaan" }
-            ],
-            "470 – KEPENDUDUKAN": [
-                { kode: "471.01", uraian: "Pengantar KTP" }, { kode: "474.01", uraian: "Keterangan Kelahiran" }, { kode: "474.02", uraian: "Keterangan Kematian" }, { kode: "476.01", uraian: "Surat Domisili" }, { kode: "477.01", uraian: "SKTM" }
-            ]
-        };
-
         const SUPABASE_URL = "https://frrguknttghhnulhidtl.supabase.co";
         const SUPABASE_KEY = "sb_publishable_1q-J0-kJWnarTudRTH8vlQ_qw_kTilk";
-        const AUTH_USER = "Kliwon03";
-        const AUTH_PASS = "Ramwet03";
+        const LOGIN = { u: "KLIWON03", p: "RAMWET03" };
 
-        let supabaseClient = null;
-        let daftarSurat = [];
+        let db = null;
+        let dataSurat = [];
 
-        // DOM Elements
-        const loginForm = document.getElementById('login-form');
-        const passwordInput = document.getElementById('password');
-        const loginScreen = document.getElementById('login-screen');
-        const appContainer = document.getElementById('app-container');
-        const loading = document.getElementById('loading');
-        const katSelect = document.getElementById('kategori-utama');
-        const uraianSelect = document.getElementById('uraian-surat');
-        const kodeInput = document.getElementById('kode');
-        const urutInput = document.getElementById('urut');
-        const perihalInput = document.getElementById('perihal');
-        const tableBody = document.getElementById('table-body');
-
-        // Utils
-        function showAlert(msg, isError = false) {
-            document.getElementById('alert-message').innerText = msg;
-            const iconDiv = document.getElementById('alert-icon');
-            if(isError) {
-                iconDiv.className = "w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4";
+        function togglePass() {
+            const input = document.getElementById('password');
+            const icon = document.getElementById('eye-icon');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18"/>';
             } else {
-                iconDiv.className = "w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-4";
-            }
-            document.getElementById('custom-alert').style.display = 'flex';
-        }
-        function closeAlert() { document.getElementById('custom-alert').style.display = 'none'; }
-
-        function togglePassword() {
-            const eye = document.getElementById('eye-icon');
-            if (passwordInput.type === 'password') {
-                passwordInput.type = 'text';
-                eye.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />';
-            } else {
-                passwordInput.type = 'password';
-                eye.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />';
+                input.type = 'password';
+                icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>';
             }
         }
 
-        // Login Logic
-        loginForm.addEventListener('submit', (e) => {
+        function showMsg(title, text, type = 'info') {
+            document.getElementById('msg-title').innerText = title;
+            document.getElementById('msg-body').innerText = text;
+            const iconWrap = document.getElementById('msg-icon');
+            iconWrap.innerHTML = type === 'error' 
+                ? '<div class="bg-red-100 text-red-500 p-3 rounded-full"><svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg></div>'
+                : '<div class="bg-blue-100 text-blue-500 p-3 rounded-full"><svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>';
+            document.getElementById('msg-modal').style.display = 'flex';
+        }
+
+        function closeMsg() { document.getElementById('msg-modal').style.display = 'none'; }
+
+        document.getElementById('login-form').onsubmit = (e) => {
             e.preventDefault();
-            if (document.getElementById('username').value === AUTH_USER && passwordInput.value === AUTH_PASS) {
-                sessionStorage.setItem('desaLogin', 'active');
-                showApp();
+            const u = document.getElementById('username').value.toUpperCase();
+            const p = document.getElementById('password').value.toUpperCase();
+            
+            if (u === LOGIN.u && p === LOGIN.p) {
+                sessionStorage.setItem('desa_auth', 'true');
+                initApp();
             } else {
-                document.getElementById('login-error').classList.remove('hidden');
-                setTimeout(() => document.getElementById('login-error').classList.add('hidden'), 3000);
+                document.getElementById('error-text').classList.remove('hidden');
             }
-        });
+        };
 
-        function showApp() {
-            loginScreen.classList.add('hidden');
-            appContainer.classList.remove('hidden');
-            initSupabase();
+        function initApp() {
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('app-container').classList.remove('hidden');
+            document.getElementById('tgl').valueAsDate = new Date();
+            
+            db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            fetchData();
         }
 
-        function logout() { sessionStorage.removeItem('desaLogin'); location.reload(); }
+        function logout() { sessionStorage.clear(); location.reload(); }
 
-        // Database Logic
-        function initSupabase() {
+        async function fetchData() {
+            showLoader(true);
             try {
-                supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-                refreshData();
-            } catch (err) { console.error(err); }
-        }
-
-        async function refreshData() {
-            if (!supabaseClient) return;
-            loading.style.display = 'flex';
-            try {
-                const { data, error } = await supabaseClient.from('surat').select('*').order('created_at', { ascending: false });
+                const { data, error } = await db.from('surat').select('*').order('created_at', { ascending: false });
                 if (error) throw error;
-                daftarSurat = data || [];
-                document.getElementById('status-dot').className = "inline-block h-2 w-2 rounded-full bg-emerald-500 mr-2";
-                document.getElementById('status-text').innerText = "ONLINE";
-                document.getElementById('count-total').innerText = daftarSurat.length;
-                updateTable();
-            } catch (err) {
-                document.getElementById('status-dot').className = "inline-block h-2 w-2 rounded-full bg-red-500 mr-2";
-                document.getElementById('status-text').innerText = "OFFLINE";
-            } finally { loading.style.display = 'none'; }
+                dataSurat = data || [];
+                renderTable();
+            } catch (e) { console.error(e); }
+            showLoader(false);
         }
 
-        function updateTable() {
-            tableBody.innerHTML = '';
-            document.getElementById('empty-state').classList.toggle('hidden', daftarSurat.length > 0);
-            daftarSurat.forEach((item, index) => {
-                const row = document.createElement('tr');
-                row.className = "hover:bg-slate-50 transition-all group";
-                row.innerHTML = `
-                    <td class="p-5 text-slate-400 font-bold text-center text-xs">${index + 1}</td>
-                    <td class="p-5 text-slate-600 text-xs">${item.tanggal}</td>
-                    <td class="p-5"><span class="bg-blue-100 text-blue-900 px-3 py-1.5 rounded-xl font-black font-mono text-sm">${item.kode}/${item.urut}</span></td>
-                    <td class="p-5 text-slate-700 text-xs">${item.perihal}</td>
-                    <td class="p-5 text-center">
-                        <div class="flex items-center justify-center gap-2">
-                            <button onclick="printRow('${item.id}')" class="text-blue-500 hover:bg-blue-100 p-2 rounded-lg transition-all" title="Print Memo"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg></button>
-                            <button onclick="deleteData('${item.id}')" class="text-red-400 hover:text-red-600 p-2 rounded-lg transition-all" title="Hapus"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+        function renderTable() {
+            const body = document.getElementById('table-body');
+            body.innerHTML = '';
+            document.getElementById('counter').innerText = dataSurat.length;
+
+            dataSurat.forEach((s) => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition";
+                tr.innerHTML = `
+                    <td class="p-4 font-semibold text-slate-500 text-xs">${s.tanggal}</td>
+                    <td class="p-4"><span class="bg-blue-50 text-blue-700 px-2 py-1 rounded font-bold text-xs">${s.kode}/${s.urut}</span></td>
+                    <td class="p-4 text-xs font-medium text-slate-600">${s.perihal}</td>
+                    <td class="p-4 text-center">
+                        <div class="flex gap-2 justify-center">
+                            <button onclick="printRow('${s.id}')" class="text-blue-500 p-2 rounded-lg hover:bg-blue-50 transition"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg></button>
+                            <button onclick="deleteRow('${s.id}')" class="text-red-400 p-2 rounded-lg hover:bg-red-50 transition"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
                         </div>
                     </td>
                 `;
-                tableBody.appendChild(row);
+                body.appendChild(tr);
             });
         }
 
-        // Cleanup Logic
-        async function cleanupDuplicates() {
-            loading.style.display = 'flex';
-            try {
-                const { data, error } = await supabaseClient.from('surat').select('*').order('created_at', { ascending: true });
-                if (error) throw error;
-                const seen = new Set();
-                const duplicates = [];
-                data.forEach(item => {
-                    const key = `${item.kode}-${item.urut}`;
-                    if (seen.has(key)) duplicates.push(item.id); else seen.add(key);
-                });
-                if (duplicates.length > 0) {
-                    await supabaseClient.from('surat').delete().in('id', duplicates);
-                    showAlert(`Berhasil menghapus ${duplicates.length} nomor ganda.`);
-                    refreshData();
-                } else {
-                    showAlert("Data bersih, tidak ada nomor ganda.");
-                }
-            } catch (err) { showAlert("Terjadi kesalahan sistem.", true); }
-            finally { loading.style.display = 'none'; }
-        }
-
-        // Form Submit
-        document.getElementById('surat-form').addEventListener('submit', async function(e) {
+        document.getElementById('surat-form').onsubmit = async (e) => {
             e.preventDefault();
-            const vKode = kodeInput.value;
-            const vUrut = parseInt(urutInput.value);
-
-            // Validasi Double
-            const isDuplicate = daftarSurat.some(s => s.kode === vKode && parseInt(s.urut) === vUrut);
-            if (isDuplicate) {
-                showAlert(`PERINGATAN! Nomor urut ${vUrut} untuk kode ${vKode} sudah digunakan. Harap gunakan nomor urut selanjutnya.`, true);
-                return;
-            }
-
-            loading.style.display = 'flex';
             const payload = {
-                tanggal: document.getElementById('tanggal').value,
-                kode: vKode,
-                urut: vUrut,
-                perihal: perihalInput.value
+                tanggal: document.getElementById('tgl').value,
+                kode: document.getElementById('kat').value,
+                urut: parseInt(document.getElementById('urut').value),
+                perihal: document.getElementById('perihal').value
             };
 
-            try {
-                const { error } = await supabaseClient.from('surat').insert([payload]);
-                if (error) throw error;
-                this.reset();
-                refreshData();
-            } catch (err) { showAlert("Gagal mengirim ke cloud.", true); }
-            finally { loading.style.display = 'none'; }
-        });
+            // Cek Nomor Ganda
+            const ganda = dataSurat.filter(s => s.kode === payload.kode && parseInt(s.urut) === payload.urut);
+            if (ganda.length > 0) {
+                showMsg("Nomor Ganda!", `Nomor ${payload.kode}/${payload.urut} sudah ada. Sistem menghapus yang lama dan menyimpan yang baru.`, 'info');
+                const ids = ganda.map(x => x.id);
+                await db.from('surat').delete().in('id', ids);
+            }
 
-        // Reset Data
-        function openReset() { document.getElementById('confirm-modal').style.display = 'flex'; }
-        function closeConfirm() { document.getElementById('confirm-modal').style.display = 'none'; }
+            showLoader(true);
+            const { error } = await db.from('surat').insert([payload]);
+            if (!error) {
+                document.getElementById('perihal').value = '';
+                document.getElementById('urut').value = payload.urut + 1;
+                await fetchData();
+                printRow(dataSurat[0].id); // Langsung print baris terbaru
+            }
+            showLoader(false);
+        };
+
+        async function deleteRow(id) {
+            if (!confirm("Hapus nomor surat ini dari sistem?")) return;
+            showLoader(true);
+            await db.from('surat').delete().eq('id', id);
+            fetchData();
+        }
+
+        function confirmReset() {
+            if (confirm("PERINGATAN! Ini akan menghapus SEMUA data penomoran selamanya. Lanjutkan?")) {
+                executeReset();
+            }
+        }
+
         async function executeReset() {
-            closeConfirm();
-            loading.style.display = 'flex';
-            try {
-                const { error } = await supabaseClient.from('surat').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-                if (error) throw error;
-                showAlert("Semua data berhasil direset.");
-                refreshData();
-            } catch (err) { showAlert("Gagal mereset data.", true); }
-            finally { loading.style.display = 'none'; }
-        }
-
-        // Download & Export
-        function downloadFullPDF() {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            doc.text("ARSIP PENOMORAN SURAT DESA RAMBATAN WETAN", 105, 15, { align: "center" });
-            
-            const rows = daftarSurat.map((s, i) => [i + 1, s.tanggal, `${s.kode}/${s.urut}`, s.perihal]);
-            doc.autoTable({
-                head: [['No', 'Tanggal', 'Nomor Surat', 'Perihal']],
-                body: rows,
-                startY: 25,
-                theme: 'striped',
-                headStyles: { fillColor: [30, 58, 138] }
-            });
-            doc.save(`Arsip_Surat_${new Date().toLocaleDateString()}.pdf`);
-        }
-
-        function printRow(id) {
-            const item = daftarSurat.find(s => s.id === id);
-            if(!item) return;
-            const printWindow = window.open('', '_blank');
-            printWindow.document.write(`
-                <html>
-                <head><title>Print Memo</title><style>
-                    body { font-family: sans-serif; padding: 40px; }
-                    .header { border-bottom: 3px double black; text-align: center; margin-bottom: 20px; }
-                    .content { line-height: 2; font-size: 16px; }
-                    .label { width: 150px; display: inline-block; font-weight: bold; }
-                </style></head>
-                <body>
-                    <div class="header">
-                        <h2>PEMERINTAH KABUPATEN INDRAMAYU</h2>
-                        <h3>KECAMATAN SINDANG - DESA RAMBATAN WETAN</h3>
-                    </div>
-                    <h3 style="text-align:center; text-decoration:underline;">MEMO NOMOR SURAT</h3>
-                    <div class="content">
-                        <p><span class="label">Tanggal Surat</span>: ${item.tanggal}</p>
-                        <p><span class="label">Nomor Surat</span>: ${item.kode}/${item.urut}</p>
-                        <p><span class="label">Perihal</span>: ${item.perihal}</p>
-                    </div>
-                    <div style="margin-top: 50px; float: right; text-align: center;">
-                        <p>Petugas Administrasi,</p><br><br><br>
-                        <p><strong>( ________________ )</strong></p>
-                    </div>
-                    <script>window.print(); window.close();<\/script>
-                </body></html>
-            `);
-        }
-
-        async function deleteData(id) {
-            if (!confirm("Hapus baris ini dari database?")) return;
-            loading.style.display = 'flex';
-            try { await supabaseClient.from('surat').delete().eq('id', id); refreshData(); }
-            catch (err) { showAlert("Gagal menghapus.", true); }
-            finally { loading.style.display = 'none'; }
+            showLoader(true);
+            // Delete all bypass: usually we use a range or filter that covers everything
+            await db.from('surat').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+            await fetchData();
+            showMsg("Reset Berhasil", "Semua data telah dihapus.");
         }
 
         function backupData() {
-            const blob = new Blob([JSON.stringify(daftarSurat, null, 2)], { type: 'application/json' });
+            const blob = new Blob([JSON.stringify(dataSurat)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = `Backup_NomorSurat_${new Date().toISOString().split('T')[0]}.json`;
+            a.href = url;
+            a.download = `Backup_Surat_Desa_${new Date().toISOString().split('T')[0]}.json`;
             a.click();
         }
 
-        // Init App
-        window.onload = () => {
-            Object.keys(klasifikasiData).forEach(kat => {
-                const opt = document.createElement('option');
-                opt.value = kat; opt.textContent = kat;
-                katSelect.appendChild(opt);
-            });
+        async function restoreData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const restored = JSON.parse(e.target.result);
+                    if (!Array.isArray(restored)) throw "Format Salah";
+                    showLoader(true);
+                    // Hapus data lama, lalu masukkan data baru
+                    await db.from('surat').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+                    const { error } = await db.from('surat').insert(restored.map(s => ({
+                        tanggal: s.tanggal,
+                        kode: s.kode,
+                        urut: s.urut,
+                        perihal: s.perihal
+                    })));
+                    if (error) throw error;
+                    await fetchData();
+                    showMsg("Restore Berhasil", "Data berhasil dipulihkan dari file.");
+                } catch (err) {
+                    showMsg("Gagal", "File JSON tidak valid!", "error");
+                }
+                showLoader(false);
+            };
+            reader.readAsText(file);
+        }
 
-            katSelect.addEventListener('change', () => {
-                const sub = klasifikasiData[katSelect.value] || [];
-                uraianSelect.innerHTML = '<option value="">-- Pilih --</option>';
-                sub.forEach(item => {
-                    const opt = document.createElement('option');
-                    opt.value = item.kode; opt.textContent = `${item.kode} - ${item.uraian}`;
-                    uraianSelect.appendChild(opt);
-                });
-                kodeInput.value = '';
-            });
+        function downloadPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            doc.setFontSize(14);
+            doc.text("ARSIP PENOMORAN SURAT DESA RAMBATAN WETAN", 105, 15, { align: "center" });
+            doc.setFontSize(10);
+            doc.text(`Dicetak pada: ${new Date().toLocaleString('id-ID')}`, 105, 22, { align: "center" });
 
-            uraianSelect.addEventListener('change', () => {
-                if (!uraianSelect.value) return;
-                const found = klasifikasiData[katSelect.value].find(i => i.kode === uraianSelect.value);
-                kodeInput.value = found.kode; 
-                perihalInput.value = found.uraian;
-                
-                // Cari nomor urut terakhir untuk kode ini
-                const samaKode = daftarSurat.filter(s => s.kode === found.kode);
-                const lastUrut = samaKode.length > 0 ? Math.max(...samaKode.map(s => parseInt(s.urut))) : 0;
-                urutInput.value = lastUrut + 1;
+            const tableData = dataSurat.map((s, i) => [i + 1, s.tanggal, `${s.kode}/${s.urut}`, s.perihal]);
+            doc.autoTable({
+                head: [['No', 'Tanggal', 'Nomor Surat', 'Perihal/Keterangan']],
+                body: tableData,
+                startY: 30,
+                theme: 'grid',
+                headStyles: { fillColor: [30, 58, 138], textColor: 255, fontStyle: 'bold' },
+                styles: { fontSize: 8, cellPadding: 3 }
             });
+            doc.save(`Arsip_Penomoran_Surat_RW.pdf`);
+        }
 
-            if (sessionStorage.getItem('desaLogin') === 'active') showApp();
-            document.getElementById('tanggal').valueAsDate = new Date();
-        };
+        function printRow(id) {
+            const item = dataSurat.find(s => s.id === id);
+            if (!item) return;
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+                <html>
+                <head><title>Cetak Memo Nomor</title>
+                <style>
+                    body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+                    .ticket { border: 2px dashed #000; padding: 30px; width: 350px; text-align: center; }
+                    .code { font-size: 32px; font-weight: bold; margin: 20px 0; border: 2px solid #000; padding: 10px; display: inline-block; }
+                    .info { font-size: 14px; margin-bottom: 5px; }
+                </style>
+                </head>
+                <body onload="window.print(); window.close();">
+                    <div class="ticket">
+                        <div class="info">PEMERINTAH DESA RAMBATAN WETAN</div>
+                        <div class="info">MEMO NOMOR SURAT</div>
+                        <div class="code">${item.kode}/${item.urut}</div>
+                        <div class="info">Tanggal: ${item.tanggal}</div>
+                        <div class="info" style="margin-top:15px; border-top: 1px solid #ccc; padding-top: 10px;">
+                            <strong>Perihal:</strong><br>${item.perihal}
+                        </div>
+                    </div>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+        }
+
+        function showLoader(v) { document.getElementById('loader').classList.toggle('hidden', !v); }
+
+        if (sessionStorage.getItem('desa_auth')) initApp();
     </script>
 </body>
 </html>
