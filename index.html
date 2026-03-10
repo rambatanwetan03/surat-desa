@@ -3,10 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistem Nomor Surat Desa Rambatan Wetan</title>
+    <title>Sistem Nomor Surat Desa Rambatan Wetan (Cloud)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.autotable.min.js"></script>
     <style>
         @media print {
             .no-print { display: none !important; }
@@ -16,282 +15,248 @@
             th, td { border: 1px solid black !important; padding: 8px; }
         }
         .print-header { display: none; }
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255,255,255,0.8);
+            z-index: 1000;
+            justify-content: center; align-items: center;
+        }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
+<body class="bg-gray-100 min-h-screen p-4 md:p-8">
 
-    <!-- Login Section -->
-    <div id="login-section" class="min-h-screen flex items-center justify-center p-4">
-        <div class="max-w-md w-full bg-white rounded-xl shadow-lg overflow-hidden p-8">
-            <div class="text-center mb-8">
-                <h1 class="text-2xl font-bold text-blue-800 uppercase">Login Nomor Urut Surat Pelayanan</h1>
-                <p class="text-gray-500 text-sm">Desa Rambatan Wetan</p>
-            </div>
-            <form id="login-form" class="space-y-4">
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700">Username</label>
-                    <input type="text" id="username" required class="w-full p-2.5 border rounded mt-1 focus:ring-2 focus:ring-blue-500 outline-none">
-                </div>
-                <div class="relative">
-                    <label class="block text-sm font-semibold text-gray-700">Password</label>
-                    <input type="password" id="password" required class="w-full p-2.5 border rounded mt-1 focus:ring-2 focus:ring-blue-500 outline-none">
-                    <button type="button" onclick="togglePassword()" class="absolute right-3 top-9 text-gray-500 hover:text-blue-600">
-                        <svg id="eye-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                    </button>
-                </div>
-                <div id="login-error" class="hidden text-red-500 text-sm font-bold text-center">
-                    Username atau Password Salah!
-                </div>
-                <button type="submit" class="w-full bg-blue-800 text-white py-2.5 rounded-lg font-bold hover:bg-blue-900 transition mt-4">Masuk ke Sistem</button>
-            </form>
-        </div>
+    <div id="loading" class="loading-overlay flex-col">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-800 mb-2"></div>
+        <p class="text-blue-800 font-semibold">Memproses data...</p>
     </div>
 
-    <!-- Main Content Section (Hidden by default) -->
-    <div id="main-content" class="hidden p-4 md:p-8">
-        <div class="max-w-5xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
-            <!-- Header -->
-            <header class="bg-blue-800 text-white p-6 text-center relative">
-                <button onclick="logout()" class="absolute right-4 top-4 bg-red-600 px-3 py-1 rounded text-xs hover:bg-red-700 no-print">Logout</button>
-                <h1 class="text-2xl md:text-3xl font-bold uppercase tracking-wide">Data Nomor Urut Surat</h1>
-                <h2 class="text-xl">Pemerintah Desa Rambatan Wetan</h2>
-                <p class="text-sm opacity-80 mt-1">Sistem Administrasi Persuratan Digital</p>
-            </header>
+    <div class="max-w-5xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
+        <header class="bg-blue-800 text-white p-6 text-center">
+            <h1 class="text-2xl md:text-3xl font-bold uppercase tracking-wide">Data Nomor Urut Surat</h1>
+            <h2 class="text-xl">Pemerintah Desa Rambatan Wetan</h2>
+            <p class="text-sm opacity-80 mt-1 text-yellow-200">Mode Cloud: Google Sheets Sync (JSONP)</p>
+        </header>
 
-            <!-- Form Input -->
-            <div class="p-6 border-b no-print">
-                <div id="alert-box" class="hidden mb-4 p-4 bg-red-100 border-l-4 border-red-500 text-red-700 font-bold uppercase">
-                    NOMOR INI SUDAH ADA! Tidak bisa disimpan.
-                </div>
-
-                <form id="surat-form" class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-1">Tanggal</label>
-                        <input type="date" id="tanggal" required class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-1">Kode Klasifikasi</label>
-                        <input type="text" id="kode" placeholder="Contoh: 141" required class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-1">Nomor Urut</label>
-                        <input type="number" id="urut" placeholder="001" required class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-1">Perihal</label>
-                        <input type="text" id="perihal" placeholder="Keterangan Surat" required class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none">
-                    </div>
-                    <div class="md:col-span-4 flex gap-2 justify-end mt-2">
-                        <button type="button" onclick="resetForm()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition">Reset</button>
-                        <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded font-bold hover:bg-blue-700 transition">Simpan Data</button>
-                    </div>
-                </form>
+        <div class="p-6 border-b no-print">
+            <div id="alert-box" class="hidden mb-4 p-4 bg-red-100 border-l-4 border-red-500 text-red-700 font-bold uppercase">
+                NOMOR INI SUDAH ADA!
             </div>
 
-            <!-- Tabel Data -->
-            <div class="p-6">
-                <div class="flex flex-wrap justify-between items-center mb-4 gap-2 no-print">
-                    <h3 class="text-lg font-bold text-gray-800">Daftar Surat Tercatat</h3>
-                    <div class="flex gap-2">
-                        <button onclick="exportToPDF()" class="flex items-center gap-1 px-3 py-1.5 bg-red-600 text-white rounded text-sm hover:bg-red-700">
-                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 2l4.5 4.5H11V4z"/></svg>
-                            Simpan PDF
-                        </button>
-                        <button onclick="window.print()" class="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700">
-                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z"/></svg>
-                            Cetak / Print
-                        </button>
-                    </div>
+            <form id="surat-form" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Tanggal</label>
+                    <input type="date" id="tanggal" required class="w-full p-2 border rounded outline-none">
                 </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Kode Klasifikasi</label>
+                    <input type="text" id="kode" placeholder="141" required class="w-full p-2 border rounded outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Nomor Urut</label>
+                    <input type="number" id="urut" placeholder="001" required class="w-full p-2 border rounded outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Perihal</label>
+                    <input type="text" id="perihal" placeholder="Keterangan Surat" required class="w-full p-2 border rounded outline-none">
+                </div>
+                <div class="md:col-span-4 flex justify-end gap-2 mt-2">
+                    <button type="button" onclick="refreshData()" class="px-4 py-2 bg-gray-500 text-white rounded text-sm font-semibold hover:bg-gray-600 transition">Muat Ulang Data</button>
+                    <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded font-bold hover:bg-blue-700 transition">Simpan ke Google Sheets</button>
+                </div>
+            </form>
+        </div>
 
-                <!-- Header khusus print -->
-                <div class="print-header">
-                    <h1 style="font-size: 24px; font-weight: bold;">DATA NOMOR URUT SURAT</h1>
-                    <h2 style="font-size: 20px;">PEMERINTAH DESA RAMBATAN WETAN</h2>
-                    <hr style="margin: 10px 0; border: 1px solid black;">
-                </div>
+        <div class="p-6">
+            <div class="flex flex-wrap justify-between items-center mb-4 gap-2 no-print">
+                <h3 class="text-lg font-bold text-gray-800">Daftar Surat Tercatat</h3>
+                <button onclick="exportToPDF()" class="flex items-center gap-1 px-3 py-1.5 bg-red-600 text-white rounded text-sm hover:bg-red-700">Simpan PDF</button>
+            </div>
 
-                <div class="overflow-x-auto">
-                    <table id="table-surat" class="w-full border-collapse border border-gray-200">
-                        <thead>
-                            <tr class="bg-gray-50 text-left">
-                                <th class="border p-3 text-sm font-bold text-gray-700">No.</th>
-                                <th class="border p-3 text-sm font-bold text-gray-700">Tanggal</th>
-                                <th class="border p-3 text-sm font-bold text-gray-700">Nomor Surat</th>
-                                <th class="border p-3 text-sm font-bold text-gray-700">Perihal</th>
-                                <th class="border p-3 text-sm font-bold text-gray-700 no-print">Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody id="table-body">
-                            <!-- Data akan muncul di sini -->
-                        </tbody>
-                    </table>
-                    <div id="empty-state" class="text-center py-10 text-gray-500">
-                        Belum ada data nomor surat.
-                    </div>
-                </div>
+            <div class="print-header">
+                <h1 style="font-size: 24px; font-weight: bold;">DATA NOMOR URUT SURAT</h1>
+                <h2 style="font-size: 20px;">DESA RAMBATAN WETAN</h2>
+                <hr style="margin: 10px 0; border: 1px solid black;">
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full border-collapse border border-gray-200">
+                    <thead>
+                        <tr class="bg-gray-50 text-left">
+                            <th class="border p-3 text-sm font-bold">No.</th>
+                            <th class="border p-3 text-sm font-bold">Tanggal</th>
+                            <th class="border p-3 text-sm font-bold">Nomor Surat</th>
+                            <th class="border p-3 text-sm font-bold">Perihal</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body"></tbody>
+                </table>
+                <div id="empty-state" class="text-center py-10 text-gray-500">Menghubungkan ke database cloud...</div>
             </div>
         </div>
     </div>
 
     <script>
-        // State & Auth
-        let daftarSurat = JSON.parse(localStorage.getItem('surat_rambatan_wetan')) || [];
-        let isLoggedIn = sessionStorage.getItem('isLoggedIn') === 'true';
+        // URL Google Apps Script Anda
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzekIbO8rOfthWxtkf7fRlexr4aipJ2UmgLoYLwyecKedgwP_Cy7wZYHZ1mga5g6mKErQ/exec";
 
-        const loginSection = document.getElementById('login-section');
-        const mainContent = document.getElementById('main-content');
-        const loginForm = document.getElementById('login-form');
-        const loginError = document.getElementById('login-error');
-        
+        let daftarSurat = [];
         const form = document.getElementById('surat-form');
         const tableBody = document.getElementById('table-body');
-        const alertBox = document.getElementById('alert-box');
+        const loading = document.getElementById('loading');
         const emptyState = document.getElementById('empty-state');
 
-        // Initial View Logic
-        function checkAuth() {
-            if (isLoggedIn) {
-                loginSection.classList.add('hidden');
-                mainContent.classList.remove('hidden');
-                updateTable();
-            } else {
-                loginSection.classList.remove('hidden');
-                mainContent.classList.add('hidden');
-            }
-        }
-
-        // Login Handler
-        loginForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            const user = document.getElementById('username').value;
-            const pass = document.getElementById('password').value;
-
-            if (user === 'kliwon03' && pass === 'cintaku03') {
-                isLoggedIn = true;
-                sessionStorage.setItem('isLoggedIn', 'true');
-                loginError.classList.add('hidden');
-                checkAuth();
-            } else {
-                loginError.classList.remove('hidden');
-            }
-        });
-
-        function togglePassword() {
-            const passInput = document.getElementById('password');
-            const eyeIcon = document.getElementById('eye-icon');
-            if (passInput.type === 'password') {
-                passInput.type = 'text';
-                eyeIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />`;
-            } else {
-                passInput.type = 'password';
-                eyeIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>`;
-            }
-        }
-
-        function logout() {
-            sessionStorage.removeItem('isLoggedIn');
-            location.reload();
-        }
-
-        // App Logic
         document.getElementById('tanggal').valueAsDate = new Date();
+
+        /**
+         * Penanganan JSONP Global
+         * Google Apps Script harus mengembalikan data dalam format: handleResponse(JSON_DATA)
+         */
+        window.handleResponse = function(data) {
+            console.log("Data diterima melalui JSONP:", data);
+            daftarSurat = Array.isArray(data) ? data : [];
+            updateTable();
+            loading.style.display = 'none';
+            // Bersihkan elemen script setelah selesai
+            const oldScript = document.getElementById('jsonp-fetcher');
+            if (oldScript) oldScript.remove();
+        };
+
+        async function refreshData() {
+            loading.style.display = 'flex';
+            emptyState.innerText = "Mengambil data via JSONP...";
+            
+            try {
+                // Menghapus script lama jika ada
+                const oldScript = document.getElementById('jsonp-fetcher');
+                if (oldScript) oldScript.remove();
+
+                // Membuat elemen script untuk JSONP (melewati batasan CORS)
+                const script = document.createElement('script');
+                script.id = 'jsonp-fetcher';
+                // Menambahkan parameter t untuk cache-busting dan callback untuk Apps Script
+                script.src = `${SCRIPT_URL}?callback=handleResponse&t=${Date.now()}`;
+                
+                script.onerror = () => {
+                    loading.style.display = 'none';
+                    showToast("Gagal terhubung. Pastikan Apps Script aktif & di-deploy sebagai 'Anyone'.", "error");
+                    emptyState.innerText = "Gagal memuat data cloud.";
+                };
+
+                document.body.appendChild(script);
+
+                // Timeout jika server tidak merespon dalam 10 detik
+                setTimeout(() => {
+                    if (loading.style.display === 'flex') {
+                        loading.style.display = 'none';
+                        showToast("Koneksi timeout.", "error");
+                    }
+                }, 10000);
+
+            } catch (err) {
+                console.error("JSONP Setup Error:", err);
+                loading.style.display = 'none';
+            }
+        }
 
         function updateTable() {
             tableBody.innerHTML = '';
-            
             if (daftarSurat.length === 0) {
                 emptyState.classList.remove('hidden');
+                emptyState.innerText = "Belum ada data di Google Sheets.";
             } else {
                 emptyState.classList.add('hidden');
-                daftarSurat.sort((a, b) => parseInt(a.urut) - parseInt(b.urut));
-
+                daftarSurat.sort((a, b) => (parseInt(a.urut) || 0) - (parseInt(b.urut) || 0));
+                
                 daftarSurat.forEach((item, index) => {
                     const row = document.createElement('tr');
-                    row.className = "hover:bg-gray-50 transition";
+                    row.className = "hover:bg-gray-50 transition border-b";
                     row.innerHTML = `
-                        <td class="border p-3 text-sm">${index + 1}</td>
-                        <td class="border p-3 text-sm">${formatTanggal(item.tanggal)}</td>
-                        <td class="border p-3 text-sm font-mono">${item.kode}/${item.urut}</td>
-                        <td class="border p-3 text-sm">${item.perihal}</td>
-                        <td class="border p-3 text-sm no-print text-center">
-                            <button onclick="hapusData('${item.id}')" class="text-red-600 hover:text-red-800 font-semibold">Hapus</button>
-                        </td>
+                        <td class="p-3 text-sm border-r text-center">${index + 1}</td>
+                        <td class="p-3 text-sm border-r">${formatTanggal(item.tanggal)}</td>
+                        <td class="p-3 text-sm border-r font-mono font-bold text-blue-800">${item.kode}/${item.urut}</td>
+                        <td class="p-3 text-sm">${item.perihal}</td>
                     `;
                     tableBody.appendChild(row);
                 });
             }
-            localStorage.setItem('surat_rambatan_wetan', JSON.stringify(daftarSurat));
         }
 
         function formatTanggal(dateStr) {
-            const options = { year: 'numeric', month: 'long', day: 'numeric' };
-            return new Date(dateStr).toLocaleDateString('id-ID', options);
+            try {
+                const date = new Date(dateStr);
+                if (isNaN(date.getTime())) return dateStr;
+                return date.toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' });
+            } catch(e) { return dateStr; }
         }
 
-        form.addEventListener('submit', function(e) {
+        form.addEventListener('submit', async function(e) {
             e.preventDefault();
-            const tanggal = document.getElementById('tanggal').value;
-            const kode = document.getElementById('kode').value;
-            const urut = document.getElementById('urut').value;
-            const perihal = document.getElementById('perihal').value;
+            
+            const newData = {
+                action: 'add',
+                tanggal: document.getElementById('tanggal').value,
+                kode: document.getElementById('kode').value,
+                urut: document.getElementById('urut').value,
+                perihal: document.getElementById('perihal').value
+            };
 
-            const isDuplicate = daftarSurat.some(s => s.kode === kode && s.urut === urut);
-
+            const isDuplicate = daftarSurat.some(s => s.kode === newData.kode && s.urut === newData.urut);
             if (isDuplicate) {
-                alertBox.classList.remove('hidden');
-                setTimeout(() => alertBox.classList.add('hidden'), 5000);
+                document.getElementById('alert-box').classList.remove('hidden');
+                setTimeout(() => document.getElementById('alert-box').classList.add('hidden'), 3000);
                 return;
             }
 
-            const newData = { id: Date.now().toString(), tanggal, kode, urut, perihal };
-            daftarSurat.push(newData);
-            updateTable();
-            resetForm();
-            alertBox.classList.add('hidden');
+            loading.style.display = 'flex';
+            try {
+                // Untuk pengiriman data, mode 'no-cors' paling aman di lingkungan iframe
+                await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(newData)
+                });
+                
+                showToast("Data dikirim ke Google Sheets...");
+                form.reset();
+                document.getElementById('tanggal').valueAsDate = new Date();
+                
+                // Jeda sebentar agar Apps Script memproses baru muat ulang via JSONP
+                setTimeout(refreshData, 3000);
+            } catch (err) {
+                console.error("Submit Error:", err);
+                showToast("Gagal menyimpan data.", "error");
+                loading.style.display = 'none';
+            }
         });
 
-        function hapusData(id) {
-            if (confirm('Apakah Anda yakin ingin menghapus data ini?')) {
-                daftarSurat = daftarSurat.filter(s => s.id !== id);
-                updateTable();
-            }
-        }
-
-        function resetForm() {
-            form.reset();
-            document.getElementById('tanggal').valueAsDate = new Date();
+        function showToast(message, type = "success") {
+            const toast = document.createElement('div');
+            toast.className = `fixed bottom-4 right-4 ${type === 'success' ? 'bg-green-600' : 'bg-red-600'} text-white px-6 py-3 rounded-lg shadow-2xl z-50 transition-all duration-300`;
+            toast.innerText = message;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
         }
 
         async function exportToPDF() {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
-            doc.setFontSize(16);
-            doc.text("DATA NOMOR URUT SURAT", 105, 15, { align: "center" });
-            doc.setFontSize(14);
-            doc.text("PEMERINTAH DESA RAMBATAN WETAN", 105, 23, { align: "center" });
-            doc.setLineWidth(0.5);
-            doc.line(20, 27, 190, 27);
-
-            const tableRows = daftarSurat.map((item, index) => [
-                index + 1,
-                formatTanggal(item.tanggal),
-                `${item.kode}/${item.urut}`,
-                item.perihal
-            ]);
-
-            doc.autoTable({
-                startY: 35,
-                head: [['No.', 'Tanggal', 'Nomor Surat', 'Perihal']],
-                body: tableRows,
-                theme: 'grid',
-                headStyles: { fillColor: [30, 58, 138] },
+            doc.text("DATA NOMOR URUT SURAT - DESA RAMBATAN WETAN", 10, 20);
+            let y = 35;
+            daftarSurat.forEach((item, index) => {
+                doc.text(`${index + 1}. [${item.tanggal}] ${item.kode}/${item.urut} - ${item.perihal}`, 15, y);
+                y += 10;
+                if (y > 280) { doc.addPage(); y = 20; }
             });
-
-            doc.save(`Nomor_Surat_RambatanWetan_${new Date().toLocaleDateString()}.pdf`);
+            doc.save("Laporan_Surat_Desa.pdf");
         }
 
-        window.onload = checkAuth;
+        window.onload = refreshData;
     </script>
 </body>
 </html>
