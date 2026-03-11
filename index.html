@@ -247,9 +247,18 @@
 
             <!-- Tabel Data -->
             <div class="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-                <div class="p-5 border-b border-slate-100 flex justify-between items-center">
-                    <h3 class="font-black text-slate-400 text-[10px] uppercase tracking-widest">Data Penomoran Terakhir</h3>
-                    <div class="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-[10px] font-bold uppercase">Total: <span id="counter">0</span></div>
+                <div class="p-5 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div>
+                        <h3 class="font-black text-slate-400 text-[10px] uppercase tracking-widest">Data Penomoran Terakhir</h3>
+                        <div class="bg-blue-50 text-blue-600 px-3 py-1 mt-1 rounded-full text-[10px] font-bold uppercase inline-block">Total: <span id="counter">0</span></div>
+                    </div>
+                    <!-- MENU PENCARIAN -->
+                    <div class="relative w-full md:w-64">
+                        <input type="text" id="search-input" onkeyup="filterData()" placeholder="Cari Perihal atau Nomor..." class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                        <div class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                        </div>
+                    </div>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left">
@@ -338,17 +347,18 @@
                 const { data, error } = await db.from('surat').select('*').order('created_at', { ascending: false });
                 if (error) throw error;
                 dataSurat = data || [];
-                renderTable();
+                renderTable(dataSurat);
             } catch (e) { console.error(e); }
             showLoader(false);
         }
 
-        function renderTable() {
+        // Modifikasi renderTable untuk menerima array spesifik (untuk filter pencarian)
+        function renderTable(displayData = dataSurat) {
             const body = document.getElementById('table-body');
             body.innerHTML = '';
-            document.getElementById('counter').innerText = dataSurat.length;
+            document.getElementById('counter').innerText = displayData.length;
 
-            dataSurat.forEach((s) => {
+            displayData.forEach((s) => {
                 const tr = document.createElement('tr');
                 tr.className = "hover:bg-slate-50 transition";
                 tr.innerHTML = `
@@ -366,6 +376,16 @@
             });
         }
 
+        // FUNGSI PENCARIAN
+        function filterData() {
+            const keyword = document.getElementById('search-input').value.toLowerCase();
+            const filtered = dataSurat.filter(s => {
+                const combined = `${s.kode}/${s.urut} ${s.perihal}`.toLowerCase();
+                return combined.includes(keyword);
+            });
+            renderTable(filtered);
+        }
+
         document.getElementById('surat-form').onsubmit = async (e) => {
             e.preventDefault();
             const payload = {
@@ -375,7 +395,6 @@
                 perihal: document.getElementById('perihal').value
             };
 
-            // Cek Nomor Ganda
             const ganda = dataSurat.filter(s => s.kode === payload.kode && parseInt(s.urut) === payload.urut);
             if (ganda.length > 0) {
                 showMsg("Nomor Ganda!", `Nomor ${payload.kode}/${payload.urut} sudah ada. Sistem menghapus yang lama dan menyimpan yang baru.`, 'info');
@@ -389,7 +408,9 @@
                 document.getElementById('perihal').value = '';
                 document.getElementById('urut').value = payload.urut + 1;
                 await fetchData();
-                printRow(dataSurat[0].id); // Langsung print baris terbaru
+                // Reset search box when new entry added
+                document.getElementById('search-input').value = '';
+                printRow(dataSurat[0].id); 
             }
             showLoader(false);
         };
@@ -409,7 +430,6 @@
 
         async function executeReset() {
             showLoader(true);
-            // Delete all bypass: usually we use a range or filter that covers everything
             await db.from('surat').delete().neq('id', '00000000-0000-0000-0000-000000000000');
             await fetchData();
             showMsg("Reset Berhasil", "Semua data telah dihapus.");
@@ -433,7 +453,6 @@
                     const restored = JSON.parse(e.target.result);
                     if (!Array.isArray(restored)) throw "Format Salah";
                     showLoader(true);
-                    // Hapus data lama, lalu masukkan data baru
                     await db.from('surat').delete().neq('id', '00000000-0000-0000-0000-000000000000');
                     const { error } = await db.from('surat').insert(restored.map(s => ({
                         tanggal: s.tanggal,
@@ -493,7 +512,7 @@
                         <div class="code">${item.kode}/${item.urut}</div>
                         <div class="info">Tanggal: ${item.tanggal}</div>
                         <div class="info" style="margin-top:15px; border-top: 1px solid #ccc; padding-top: 10px;">
-                            <strong>Perihal:</strong><br>${item.perihal}
+                            Perihal: ${item.perihal}
                         </div>
                     </div>
                 </body>
@@ -502,9 +521,13 @@
             printWindow.document.close();
         }
 
-        function showLoader(v) { document.getElementById('loader').classList.toggle('hidden', !v); }
+        function showLoader(v) {
+            document.getElementById('loader').classList.toggle('hidden', !v);
+        }
 
-        if (sessionStorage.getItem('desa_auth')) initApp();
+        window.onload = () => {
+            if (sessionStorage.getItem('desa_auth')) initApp();
+        };
     </script>
 </body>
 </html>
