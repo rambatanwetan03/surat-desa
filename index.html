@@ -95,8 +95,20 @@
                         <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tanggal Surat</label>
                         <input type="date" id="tgl" required class="w-full p-3.5 bg-slate-50 rounded-xl border-none ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 transition-all font-semibold">
                     </div>
-                    <div class="md:col-span-6">
-                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Klasifikasi Surat</label>
+
+                    <!-- FITUR PENCARIAN KLASIFIKASI -->
+                    <div class="md:col-span-6 space-y-2">
+                        <div class="flex flex-col">
+                             <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Cari Klasifikasi</label>
+                             <div class="relative">
+                                <input type="text" id="klasifikasi-search" onkeyup="searchKlasifikasi()" placeholder="Ketik kode atau nama (contoh: undangan)..." class="w-full p-3.5 bg-blue-50/50 rounded-xl border-none ring-1 ring-blue-100 focus:ring-2 focus:ring-blue-500 transition-all font-medium text-sm">
+                                <div class="absolute right-3 top-1/2 -translate-y-1/2 text-blue-400">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                                </div>
+                             </div>
+                        </div>
+                        
+                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Pilih Klasifikasi Surat</label>
                         <select id="kat" required class="w-full p-3.5 bg-slate-50 rounded-xl border-none ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 transition-all font-semibold">
                             <option value="">-- Pilih Klasifikasi --</option>
                             <optgroup label="100 - PEMERINTAHAN UMUM">
@@ -287,6 +299,7 @@
                             </optgroup>
                         </select>
                     </div>
+
                     <div class="md:col-span-3">
                         <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">No Urut</label>
                         <input type="number" id="urut" required class="w-full p-3.5 bg-slate-50 rounded-xl border-none ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 transition-all font-bold text-blue-700" placeholder="Contoh: 001">
@@ -363,6 +376,26 @@
         let db = null;
         let dataSurat = [];
 
+        // FUNGSI PENCARIAN KLASIFIKASI BARU
+        function searchKlasifikasi() {
+            const searchText = document.getElementById('klasifikasi-search').value.toLowerCase();
+            const select = document.getElementById('kat');
+            const options = select.options;
+
+            if (searchText === "") return;
+
+            for (let i = 0; i < options.length; i++) {
+                const text = options[i].text.toLowerCase();
+                if (text.includes(searchText)) {
+                    select.selectedIndex = i;
+                    // Highlight visual sedikit agar user tahu terpilih
+                    select.classList.add('ring-emerald-400');
+                    setTimeout(() => select.classList.remove('ring-emerald-400'), 1000);
+                    break;
+                }
+            }
+        }
+
         function togglePass() {
             const input = document.getElementById('password');
             const icon = document.getElementById('eye-icon');
@@ -435,160 +468,125 @@
                 tr.innerHTML = `
                     <td class="p-4 font-semibold text-slate-500 text-xs">${s.tanggal}</td>
                     <td class="p-4"><span class="bg-blue-50 text-blue-700 px-2 py-1 rounded font-bold text-xs">${s.kode}/${s.urut}</span></td>
-                    <td class="p-4 text-xs font-medium text-slate-600">${s.perihal}</td>
+                    <td class="p-4 text-xs font-bold text-slate-700">${s.perihal}</td>
                     <td class="p-4 text-center">
-                        <div class="flex gap-2 justify-center">
-                            <button onclick="printRow('${s.id}')" class="text-blue-500 p-2 rounded-lg hover:bg-blue-50 transition"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg></button>
-                            <button onclick="deleteRow('${s.id}')" class="text-red-400 p-2 rounded-lg hover:bg-red-50 transition"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
-                        </div>
+                        <button onclick="hapusData('${s.id}')" class="text-red-400 hover:text-red-600 transition p-2">
+                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        </button>
                     </td>
                 `;
                 body.appendChild(tr);
             });
         }
 
-        function filterData() {
-            const keyword = document.getElementById('search-input').value.toLowerCase();
-            const filtered = dataSurat.filter(s => {
-                const combined = `${s.kode}/${s.urut} ${s.perihal} ${s.tanggal}`.toLowerCase();
-                return combined.includes(keyword);
-            });
-            renderTable(filtered);
+        async function hapusData(id) {
+            if (!confirm('Hapus data ini?')) return;
+            showLoader(true);
+            try {
+                const { error } = await db.from('surat').delete().eq('id', id);
+                if (error) throw error;
+                fetchData();
+                showMsg('Berhasil', 'Data telah dihapus.');
+            } catch (e) { showMsg('Gagal', 'Gagal menghapus data.', 'error'); }
+            showLoader(false);
         }
 
         document.getElementById('surat-form').onsubmit = async (e) => {
             e.preventDefault();
-            const payload = {
-                tanggal: document.getElementById('tgl').value,
-                kode: document.getElementById('kat').value,
-                urut: parseInt(document.getElementById('urut').value),
-                perihal: document.getElementById('perihal').value
-            };
+            const tgl = document.getElementById('tgl').value;
+            const kode = document.getElementById('kat').value;
+            const urut = document.getElementById('urut').value.padStart(3, '0');
+            const perihal = document.getElementById('perihal').value;
 
-            const ganda = dataSurat.filter(s => s.kode === payload.kode && parseInt(s.urut) === payload.urut);
-            if (ganda.length > 0) {
-                showMsg("Nomor Ganda!", `Nomor ${payload.kode}/${payload.urut} sudah ada.`, 'error');
-                return;
-            }
+            if (!kode) return showMsg('Perhatian', 'Pilih klasifikasi surat dulu!', 'error');
 
             showLoader(true);
             try {
-                const { error } = await db.from('surat').insert([payload]);
+                const { error } = await db.from('surat').insert([{ 
+                    tanggal: tgl, 
+                    kode: kode, 
+                    urut: urut, 
+                    perihal: perihal 
+                }]);
                 if (error) throw error;
+                
                 document.getElementById('perihal').value = '';
-                document.getElementById('urut').value = parseInt(payload.urut) + 1;
-                await fetchData();
-                showMsg("Berhasil", "Data penomoran telah disimpan.");
-            } catch (err) {
-                showMsg("Error", "Gagal menyimpan ke database.");
-            }
+                document.getElementById('klasifikasi-search').value = '';
+                fetchData();
+                showMsg('Sukses', `Nomor Surat Berhasil Dibuat: ${kode}/${urut}`);
+            } catch (e) { showMsg('Gagal', 'Gagal menyimpan data ke database.', 'error'); }
             showLoader(false);
         };
 
-        async function deleteRow(id) {
-            if (!confirm('Hapus data ini?')) return;
-            showLoader(true);
-            try {
-                await db.from('surat').delete().eq('id', id);
-                await fetchData();
-            } catch (e) { showMsg("Error", "Gagal menghapus."); }
-            showLoader(false);
-        }
-
-        function printRow(id) {
-            const s = dataSurat.find(x => x.id == id);
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
-            
-            doc.setFontSize(22); doc.setFont("helvetica", "bold");
-            doc.text("PEMERINTAH KABUPATEN INDRAMAYU", 105, 20, {align: 'center'});
-            doc.setFontSize(18);
-            doc.text("KECAMATAN SINDANG", 105, 28, {align: 'center'});
-            doc.setFontSize(24);
-            doc.text("DESA RAMBATAN WETAN", 105, 38, {align: 'center'});
-            doc.setLineWidth(1); doc.line(20, 42, 190, 42);
-            
-            doc.setFontSize(14); doc.setFont("helvetica", "normal");
-            doc.text("NOMOR SURAT:", 20, 60);
-            doc.setFontSize(30); doc.setFont("helvetica", "bold");
-            doc.text(`${s.kode}/${s.urut}`, 20, 75);
-            
-            doc.setFontSize(14); doc.setFont("helvetica", "normal");
-            doc.text("PERIHAL:", 20, 95);
-            doc.setFontSize(16); doc.setFont("helvetica", "italic");
-            doc.text(doc.splitTextToSize(s.perihal, 170), 20, 105);
-            
-            doc.setFontSize(12); doc.setFont("helvetica", "normal");
-            doc.text(`Dicetak pada: ${new Date().toLocaleString('id-ID')}`, 20, 280);
-            
-            window.open(doc.output('bloburl'), '_blank');
+        function filterData() {
+            const query = document.getElementById('search-input').value.toLowerCase();
+            const filtered = dataSurat.filter(s => 
+                s.perihal.toLowerCase().includes(query) || 
+                s.kode.toLowerCase().includes(query) || 
+                s.urut.includes(query)
+            );
+            renderTable(filtered);
         }
 
         function downloadPDF() {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
-            doc.text("REKAP PENOMORAN SURAT - DESA RAMBATAN WETAN", 14, 15);
-            const rows = dataSurat.map(s => [s.tanggal, `${s.kode}/${s.urut}`, s.perihal]);
+            doc.text("AGENDA PENOMORAN SURAT - DESA RAMBATAN WETAN", 14, 15);
             doc.autoTable({
-                head: [['Tanggal', 'Nomor Surat', 'Perihal/Keterangan']],
-                body: rows,
+                head: [['Tanggal', 'Kode', 'No Urut', 'Perihal']],
+                body: dataSurat.map(s => [s.tanggal, s.kode, s.urut, s.perihal]),
                 startY: 20
             });
-            doc.save(`Rekap_Surat_${new Date().toISOString().split('T')[0]}.pdf`);
+            doc.save(`agenda-surat-${new Date().toLocaleDateString()}.pdf`);
         }
 
         function backupData() {
-            const blob = new Blob([JSON.stringify(dataSurat)], {type: 'application/json'});
+            const blob = new Blob([JSON.stringify(dataSurat)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `backup_surat_${new Date().getTime()}.json`;
+            a.download = `backup-surat-${Date.now()}.json`;
             a.click();
         }
 
-        async function restoreData(e) {
-            const file = e.target.files[0];
+        async function restoreData(event) {
+            const file = event.target.files[0];
             if (!file) return;
             const reader = new FileReader();
-            reader.onload = async (event) => {
-                try {
-                    const imported = JSON.parse(event.target.result);
-                    if (!confirm(`Impor ${imported.length} data? Data lama di database tetap ada.`)) return;
+            reader.onload = async (e) => {
+                const imported = JSON.parse(e.target.result);
+                if (confirm(`Impor ${imported.length} data? Data lama tidak akan terhapus.`)) {
                     showLoader(true);
-                    for (const item of imported) {
-                        delete item.id;
-                        delete item.created_at;
-                        await db.from('surat').insert([item]);
-                    }
-                    await fetchData();
-                    showMsg("Sukses", "Data berhasil diimpor.");
-                } catch (err) { showMsg("Error", "Format file salah."); }
-                showLoader(false);
+                    try {
+                        const cleanData = imported.map(({id, created_at, ...rest}) => rest);
+                        const { error } = await db.from('surat').insert(cleanData);
+                        if (error) throw error;
+                        fetchData();
+                        showMsg('Berhasil', 'Data berhasil diimpor.');
+                    } catch (err) { showMsg('Gagal', 'Format file salah atau gagal impor.', 'error'); }
+                    showLoader(false);
+                }
             };
             reader.readAsText(file);
         }
 
         async function confirmReset() {
-            if (confirm("PERINGATAN! Ini akan menghapus SEMUA data di database. Lanjutkan?")) {
-                const pass = prompt("Masukkan Password Admin:");
+            if (confirm('PERINGATAN: Hapus SEMUA data penomoran? Tindakan ini tidak bisa dibatalkan!')) {
+                const pass = prompt('Masukkan Password Konfirmasi:');
                 if (pass === LOGIN.p) {
                     showLoader(true);
-                    const { data } = await db.from('surat').select('id');
-                    for (const item of data) {
-                        await db.from('surat').delete().eq('id', item.id);
-                    }
-                    await fetchData();
-                    showMsg("Dibersihkan", "Semua data telah dihapus.");
+                    try {
+                        const { error } = await db.from('surat').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+                        if (error) throw error;
+                        fetchData();
+                        showMsg('Reset Selesai', 'Semua data telah dibersihkan.');
+                    } catch (e) { showMsg('Error', 'Gagal membersihkan database.', 'error'); }
                     showLoader(false);
                 } else {
-                    showMsg("Gagal", "Password salah.", 'error');
+                    showMsg('Ditolak', 'Password konfirmasi salah.', 'error');
                 }
             }
         }
-
-        window.onload = () => {
-            if (sessionStorage.getItem('desa_auth') === 'true') initApp();
-        };
     </script>
 </body>
 </html>
