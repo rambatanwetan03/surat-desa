@@ -90,6 +90,17 @@
         <main class="max-w-6xl mx-auto p-4 space-y-4">
             <!-- Form Input -->
             <div class="bg-white rounded-3xl shadow-sm p-6 border border-slate-200">
+                <!-- Fitur Pencarian Klasifikasi Cepat -->
+                <div class="mb-6 p-4 bg-blue-50 rounded-2xl border border-blue-100">
+                    <label class="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-2 block">Cari Klasifikasi Cepat</label>
+                    <div class="relative">
+                        <input type="text" id="quick-search-kat" onkeyup="filterKlasifikasi()" placeholder="Ketik kata kunci (misal: Undangan, Lahir, RT)..." class="w-full p-3 pl-10 bg-white rounded-xl border border-blue-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                        <div class="absolute left-3 top-1/2 -translate-y-1/2 text-blue-400">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                        </div>
+                    </div>
+                </div>
+
                 <form id="surat-form" class="grid grid-cols-1 md:grid-cols-12 gap-5">
                     <div class="md:col-span-3">
                         <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tanggal Surat</label>
@@ -200,6 +211,31 @@
             }
         }
 
+        // FEATURE: FILTER CLASSIFICATION (NEW)
+        function filterKlasifikasi() {
+            const input = document.getElementById('quick-search-kat');
+            const filter = input.value.toLowerCase();
+            const select = document.getElementById('kat');
+            const options = select.getElementsByTagName('option');
+            const groups = select.getElementsByTagName('optgroup');
+
+            let firstMatch = null;
+
+            // Loop through options
+            for (let i = 0; i < options.length; i++) {
+                const txtValue = options[i].textContent || options[i].innerText;
+                if (txtValue.toLowerCase().indexOf(filter) > -1) {
+                    options[i].style.display = "";
+                    if (!firstMatch && options[i].value !== "") firstMatch = options[i].value;
+                } else {
+                    if (options[i].value !== "") options[i].style.display = "none";
+                }
+            }
+
+            // Optional: Auto-select if there's exactly one clear match or just highlights
+            // Note: We don't auto-select to avoid accidental changes while typing
+        }
+
         // FEATURE: AUTO SEARCH NEXT NUMBER
         function autoSearchNumber() {
             const selectedKode = document.getElementById('kat').value;
@@ -247,7 +283,6 @@
             const p = document.getElementById('password').value.toUpperCase();
             
             if (u === LOGIN.u && p === LOGIN.p) {
-                // Changed to localStorage for refresh persistence
                 localStorage.setItem('desa_auth', 'true');
                 initApp();
             } else {
@@ -321,6 +356,10 @@
                 document.getElementById('perihal').value = '';
                 document.getElementById('kat').value = '';
                 document.getElementById('urut').value = '';
+                // Reset quick search also
+                document.getElementById('quick-search-kat').value = '';
+                filterKlasifikasi();
+                
                 fetchData();
             } catch (err) {
                 console.error(err);
