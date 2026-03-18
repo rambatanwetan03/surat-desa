@@ -211,29 +211,47 @@
             }
         }
 
-        // FEATURE: FILTER CLASSIFICATION (NEW)
+        /**
+         * FITUR PENCARIAN OTOMATIS (UPDATED)
+         * Memfilter pilihan dropdown dan otomatis memilih jika ditemukan kecocokan
+         */
         function filterKlasifikasi() {
             const input = document.getElementById('quick-search-kat');
             const filter = input.value.toLowerCase();
             const select = document.getElementById('kat');
-            const options = select.getElementsByTagName('option');
-            const groups = select.getElementsByTagName('optgroup');
+            const options = select.querySelectorAll('option');
+            const optgroups = select.querySelectorAll('optgroup');
 
-            let firstMatch = null;
-
-            // Loop through options
-            for (let i = 0; i < options.length; i++) {
-                const txtValue = options[i].textContent || options[i].innerText;
-                if (txtValue.toLowerCase().indexOf(filter) > -1) {
-                    options[i].style.display = "";
-                    if (!firstMatch && options[i].value !== "") firstMatch = options[i].value;
-                } else {
-                    if (options[i].value !== "") options[i].style.display = "none";
-                }
+            if (filter === "") {
+                options.forEach(opt => opt.style.display = "");
+                optgroups.forEach(group => group.style.display = "");
+                return;
             }
 
-            // Optional: Auto-select if there's exactly one clear match or just highlights
-            // Note: We don't auto-select to avoid accidental changes while typing
+            let firstMatchValue = null;
+
+            options.forEach(option => {
+                if (option.value === "") return;
+                const text = option.textContent.toLowerCase();
+                if (text.includes(filter)) {
+                    option.style.display = "";
+                    if (!firstMatchValue) firstMatchValue = option.value;
+                } else {
+                    option.style.display = "none";
+                }
+            });
+
+            // Sembunyikan optgroup jika tidak ada isinya yang cocok
+            optgroups.forEach(group => {
+                const visibleOptions = Array.from(group.children).filter(opt => opt.style.display !== "none");
+                group.style.display = visibleOptions.length > 0 ? "" : "none";
+            });
+
+            // Auto-select jika ada kecocokan
+            if (firstMatchValue) {
+                select.value = firstMatchValue;
+                autoSearchNumber(); // Trigger update nomor urut otomatis
+            }
         }
 
         // FEATURE: AUTO SEARCH NEXT NUMBER
@@ -356,6 +374,7 @@
                 document.getElementById('perihal').value = '';
                 document.getElementById('kat').value = '';
                 document.getElementById('urut').value = '';
+                
                 // Reset quick search also
                 document.getElementById('quick-search-kat').value = '';
                 filterKlasifikasi();
