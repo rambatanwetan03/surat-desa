@@ -97,7 +97,7 @@
                     </div>
                     <div class="md:col-span-6">
                         <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Klasifikasi Surat</label>
-                        <select id="kat" required class="w-full p-3.5 bg-slate-50 rounded-xl border-none ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 transition-all font-semibold">
+                        <select id="kat" onchange="autoSearchNumber()" required class="w-full p-3.5 bg-slate-50 rounded-xl border-none ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 transition-all font-semibold">
                             <option value="">-- Pilih Klasifikasi --</option>
                             <optgroup label="100 - PEMERINTAHAN UMUM">
                                 <option value="100.01">100.01 - Surat Umum</option>
@@ -106,7 +106,6 @@
                                 <option value="110.03">110.03 - Peraturan Desa</option>
                                 <option value="140.04">140.04 - RT/RW</option>
                             </optgroup>
-                            <!-- Kategori lainnya bisa ditambahkan sesuai kebutuhan -->
                             <optgroup label="470 - KEPENDUDUKAN">
                                 <option value="474.01">474.01 - Surat Kelahiran</option>
                                 <option value="475.01">475.01 - Surat Kematian</option>
@@ -187,13 +186,35 @@
     </div>
 
     <script>
-        // Supabase Mock Config (Anda bisa ganti dengan Key yang benar)
         const SUPABASE_URL = "https://frrguknttghhnulhidtl.supabase.co";
         const SUPABASE_KEY = "sb_publishable_1q-J0-kJWnarTudRTH8vlQ_qw_kTilk";
         const LOGIN = { u: "KLIWON03", p: "RAMWET03" };
 
         let db = null;
         let dataSurat = [];
+
+        // ON LOAD CHECK SESSION
+        window.onload = function() {
+            if (localStorage.getItem('desa_auth') === 'true') {
+                initApp();
+            }
+        }
+
+        // FEATURE: AUTO SEARCH NEXT NUMBER
+        function autoSearchNumber() {
+            const selectedKode = document.getElementById('kat').value;
+            if (!selectedKode) return;
+
+            // Cari urutan tertinggi pada kode yang dipilih
+            const sameCategory = dataSurat.filter(s => s.kode === selectedKode);
+            if (sameCategory.length > 0) {
+                const numbers = sameCategory.map(s => parseInt(s.urut) || 0);
+                const nextNum = Math.max(...numbers) + 1;
+                document.getElementById('urut').value = nextNum.toString().padStart(3, '0');
+            } else {
+                document.getElementById('urut').value = "001";
+            }
+        }
 
         function togglePass() {
             const input = document.getElementById('password');
@@ -226,7 +247,8 @@
             const p = document.getElementById('password').value.toUpperCase();
             
             if (u === LOGIN.u && p === LOGIN.p) {
-                sessionStorage.setItem('desa_auth', 'true');
+                // Changed to localStorage for refresh persistence
+                localStorage.setItem('desa_auth', 'true');
                 initApp();
             } else {
                 document.getElementById('error-text').classList.remove('hidden');
@@ -242,7 +264,7 @@
             fetchData();
         }
 
-        function logout() { sessionStorage.clear(); location.reload(); }
+        function logout() { localStorage.removeItem('desa_auth'); location.reload(); }
 
         async function fetchData() {
             showLoader(true);
@@ -253,7 +275,6 @@
                 renderTable(dataSurat);
             } catch (e) { 
                 console.error(e);
-                // Fallback to local storage if supabase fails in demo
                 dataSurat = JSON.parse(localStorage.getItem('backup_surat') || '[]');
                 renderTable(dataSurat);
             }
@@ -298,10 +319,11 @@
                 if (error) throw error;
                 showMsg("Berhasil", "Nomor surat telah disimpan.");
                 document.getElementById('perihal').value = '';
+                document.getElementById('kat').value = '';
+                document.getElementById('urut').value = '';
                 fetchData();
             } catch (err) {
                 console.error(err);
-                // Local fallback logic
                 payload.id = Date.now().toString();
                 dataSurat.unshift(payload);
                 localStorage.setItem('backup_surat', JSON.stringify(dataSurat));
@@ -335,22 +357,14 @@
             renderTable(filtered);
         }
 
-        // FUNGSI DOWNLOAD PDF
         function downloadPDF() {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
-            
             doc.setFontSize(16);
             doc.text("LAPORAN PENOMORAN SURAT DESA RAMBATAN WETAN", 14, 20);
             doc.setFontSize(10);
             doc.text(`Dicetak pada: ${new Date().toLocaleString('id-ID')}`, 14, 28);
-
-            const tableData = dataSurat.map(s => [
-                s.tanggal,
-                `${s.kode}/${s.urut}`,
-                s.perihal
-            ]);
-
+            const tableData = dataSurat.map(s => [s.tanggal, `${s.kode}/${s.urut}`, s.perihal]);
             doc.autoTable({
                 startY: 35,
                 head: [['Tanggal', 'Nomor Surat', 'Perihal / Keterangan']],
@@ -358,52 +372,21 @@
                 theme: 'grid',
                 headStyles: { fillStyle: [30, 58, 138] }
             });
-
             doc.save(`E-Penomoran-Desa-${Date.now()}.pdf`);
         }
 
-        // FUNGSI DOWNLOAD WORD (Metode Blob HTML)
         function downloadWord() {
-            let tableHtml = `
-                <table border="1" style="border-collapse: collapse; width: 100%;">
-                    <tr style="background-color: #f2f2f2;">
-                        <th>Tanggal</th>
-                        <th>Nomor Surat</th>
-                        <th>Perihal / Keterangan</th>
-                    </tr>
-            `;
-
-            dataSurat.forEach(s => {
-                tableHtml += `
-                    <tr>
-                        <td>${s.tanggal}</td>
-                        <td>${s.kode}/${s.urut}</td>
-                        <td>${s.perihal}</td>
-                    </tr>
-                `;
-            });
-
+            let tableHtml = `<table border="1" style="border-collapse: collapse; width: 100%;"><tr style="background-color: #f2f2f2;"><th>Tanggal</th><th>Nomor Surat</th><th>Perihal / Keterangan</th></tr>`;
+            dataSurat.forEach(s => { tableHtml += `<tr><td>${s.tanggal}</td><td>${s.kode}/${s.urut}</td><td>${s.perihal}</td></tr>`; });
             tableHtml += `</table>`;
-
-            const header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' "+
-                "xmlns:w='urn:schemas-microsoft-com:office:word' "+
-                "xmlns='http://www.w3.org/TR/REC-html40'>"+
-                "<head><meta charset='utf-8'><title>Export Word</title></head><body>"+
-                "<h2 style='text-align:center'>LAPORAN PENOMORAN SURAT DESA RAMBATAN WETAN</h2>";
-            const footer = "</body></html>";
-            const source = header + tableHtml + footer;
-
-            const blob = new Blob(['\ufeff', source], {
-                type: 'application/msword'
-            });
-
+            const header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'></head><body><h2 style='text-align:center'>LAPORAN PENOMORAN SURAT DESA RAMBATAN WETAN</h2>";
+            const source = header + tableHtml + "</body></html>";
+            const blob = new Blob(['\ufeff', source], { type: 'application/msword' });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
             link.download = `E-Penomoran-Desa-${Date.now()}.doc`;
-            document.body.appendChild(link);
             link.click();
-            document.body.removeChild(link);
         }
 
         function backupData() {
@@ -424,7 +407,6 @@
                 if (confirm(`Restore ${content.length} data? Data sekarang akan tertimpa.`)) {
                     showLoader(true);
                     try {
-                        // Logic untuk upload ke database jika diperlukan
                         dataSurat = content;
                         localStorage.setItem('backup_surat', JSON.stringify(dataSurat));
                         renderTable();
