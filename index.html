@@ -487,9 +487,9 @@
             if (sameCategory.length > 0) {
                 const numbers = sameCategory.map(s => parseInt(s.urut) || 0);
                 const nextNum = Math.max(...numbers) + 1;
-                document.getElementById('urut').value = nextNum.toString().padStart(3, '0');
+                document.getElementById('urut').value = nextNum;
             } else {
-                document.getElementById('urut').value = "001";
+                document.getElementById('urut').value = 85;
             }
         }
 
@@ -584,7 +584,7 @@
             const payload = {
                 tanggal: document.getElementById('tgl').value,
                 kode: document.getElementById('kat').value,
-                urut: document.getElementById('urut').value.padStart(3, '0'),
+               urut: document.getElementById('urut').value,
                 perihal: document.getElementById('perihal').value,
                 created_at: new Date()
             };
@@ -645,7 +645,7 @@
             doc.text("LAPORAN PENOMORAN SURAT DESA RAMBATAN WETAN", 14, 20);
             doc.setFontSize(10);
             doc.text(`Dicetak pada: ${new Date().toLocaleString('id-ID')}`, 14, 28);
-            const tableData = dataSurat.map(s => [s.tanggal, `${s.kode}/${s.urut}`, s.perihal]);
+            const tableData = dataSurat.map(s => [s.tanggal, `${s.kode}/${String(s.urut).padStart(3,'0')}`, s.perihal]);
             doc.autoTable({
                 startY: 35,
                 head: [['Tanggal', 'Nomor Surat', 'Perihal / Keterangan']],
