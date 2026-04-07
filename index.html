@@ -588,7 +588,16 @@
                 perihal: document.getElementById('perihal').value,
                 created_at: new Date()
             };
+// CEK DUPLIKAT (kode + nomor urut)
+const isDuplicate = dataSurat.some(s => 
+    s.kode === payload.kode && String(s.urut) === String(payload.urut)
+);
 
+if (isDuplicate) {
+    showMsg("Peringatan!", "Nomor surat sudah digunakan (duplikat).", "error");
+    showLoader(false);
+    return;
+}
             showLoader(true);
             try {
                 const { error } = await db.from('surat').insert([payload]);
