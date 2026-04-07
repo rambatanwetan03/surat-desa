@@ -640,11 +640,14 @@ if (isDuplicate) {
         function filterData() {
     const val = document.getElementById('search-input').value.toLowerCase();
 
-    const filtered = dataSurat.filter(s => 
-        (s.perihal || '').toLowerCase().includes(val) || 
-        String(s.urut).toLowerCase().includes(val) || 
-        String(s.kode).toLowerCase().includes(val)
-    );
+    const filtered = dataSurat.filter(s => {
+        const nomor = `${s.kode}/${s.urut}`; // gabungan nomor
+
+        return (
+            (s.perihal || '').toLowerCase().includes(val) ||
+            nomor.toLowerCase().includes(val)
+        );
+    });
 
     renderTable(filtered);
 }
