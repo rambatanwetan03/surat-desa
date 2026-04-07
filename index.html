@@ -638,14 +638,16 @@ if (isDuplicate) {
         }
 
         function filterData() {
-            const val = document.getElementById('search-input').value.toLowerCase();
-            const filtered = dataSurat.filter(s => 
-                s.perihal.toLowerCase().includes(val) || 
-                s.urut.includes(val) || 
-                s.kode.includes(val)
-            );
-            renderTable(filtered);
-        }
+    const val = document.getElementById('search-input').value.toLowerCase();
+
+    const filtered = dataSurat.filter(s => 
+        (s.perihal || '').toLowerCase().includes(val) || 
+        String(s.urut).toLowerCase().includes(val) || 
+        String(s.kode).toLowerCase().includes(val)
+    );
+
+    renderTable(filtered);
+}
 
         function downloadPDF() {
             const { jsPDF } = window.jspdf;
