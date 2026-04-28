@@ -553,7 +553,8 @@
                 const { data, error } = await db.from('surat').select('*').order('created_at', { ascending: false });
                 if (error) throw error;
                 dataSurat = data || [];
-                renderTable(dataSurat);
+removeDuplicateData(); // ← TAMBAHKAN DI SINI
+renderTable(dataSurat);
             } catch (e) { 
                 console.error(e);
                 dataSurat = JSON.parse(localStorage.getItem('backup_surat') || '[]');
@@ -599,7 +600,12 @@ const isDuplicate = dataSurat.some(s =>
 );
 
 if (isDuplicate) {
-    showMsg("Peringatan!", "Nomor surat sudah digunakan (duplikat).", "error");
+    showMsg("Peringatan!", "Nomor surat sudah digunakan (duplikat). Data otomatis dibatalkan.", "error");
+
+    // Reset input biar tidak tersimpan
+    document.getElementById('urut').value = '';
+    document.getElementById('perihal').value = '';
+
     showLoader(false);
     return;
 }
@@ -728,6 +734,26 @@ if (isDuplicate) {
                 }
             }
         }
+        function removeDuplicateData() {
+    const seen = new Set(); // untuk menyimpan nomor yang sudah pernah ada
+    let removed = false;
+
+    dataSurat = dataSurat.filter(s => {
+        const key = `${s.kode}-${s.urut}`; // gabungan unik
+
+        if (seen.has(key)) {
+            removed = true;
+            return false; // ❌ ini yang bikin data duplikat dihapus
+        }
+
+        seen.add(key);
+        return true; // ✅ data pertama tetap disimpan
+    });
+
+    if (removed) {
+        showMsg("Peringatan!", "Ditemukan nomor ganda, data duplikat otomatis dihapus.", "error");
+    }
+}
     </script>
 </body>
 </html>
