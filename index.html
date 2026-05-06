@@ -104,11 +104,11 @@
                 <form id="surat-form" class="grid grid-cols-1 md:grid-cols-12 gap-5">
                     <div class="md:col-span-3">
                         <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tanggal Surat</label>
-                        <input type="date" id="tgl" required class="w-full p-3.5 bg-slate-50 rounded-xl border-none ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 transition-all font-semibold">
+                        <input type="date" id="tgl" onchange="autoSearchNumber()" required class="w-full p-3.5 bg-slate-50 rounded-xl border-none ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 transition-all font-semibold">
                     </div>
                     <div class="md:col-span-6">
                         <label  class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Pilih Klasifikasi Surat</label>
-                        <select id="kat" required class="w-full p-3.5 bg-slate-50 rounded-xl border-none ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 transition-all font-semibold">
+                       <select id="kat" onchange="autoSearchNumber()" required class="w-full p-3.5 bg-slate-50 rounded-xl border-none ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 transition-all font-semibold">
                             <option value="">-- Pilih Klasifikasi --</option>
                             <optgroup label="100 – PEMERINTAHAN UMUM">
                                 <option value="100.01">100.01 – Surat Umum</option>
@@ -438,7 +438,18 @@
                 initApp();
             }
         }
+function formatNomor(s) {
+    if (!s || !s.tanggal) return "-";
 
+    const bulanRomawi = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'];
+
+    const tgl = new Date(s.tanggal);
+    const bulan = bulanRomawi[tgl.getMonth()];
+    const tahun = tgl.getFullYear();
+
+    const urut = String(s.urut).padStart(3, '0');
+return `${s.kode}/${urut}/Pemdes-RW/${bulan}/${tahun}`;
+}
         /**
          * FITUR PENCARIAN OTOMATIS (UPDATED)
          * Memfilter pilihan dropdown dan otomatis memilih jika ditemukan kecocokan
@@ -482,21 +493,35 @@
             }
         }
 
-        // FEATURE: AUTO SEARCH NEXT NUMBER
         function autoSearchNumber() {
-            const selectedKode = document.getElementById('kat').value;
-            if (!selectedKode) return;
+    const selectedKode = document.getElementById('kat').value;
+    if (!selectedKode) return;
 
-            // Cari urutan tertinggi pada kode yang dipilih
-            const sameCategory = dataSurat.filter(s => s.kode === selectedKode);
-            if (sameCategory.length > 0) {
-                const numbers = sameCategory.map(s => parseInt(s.urut) || 0);
-                const nextNum = Math.max(...numbers) + 1;
-                document.getElementById('urut').value = nextNum;
-            } else {
-                document.getElementById('urut').value = 85;
-            }
-        }
+    const tglInput = document.getElementById('tgl').value;
+if (!tglInput) return;
+
+const tahunSekarang = new Date(tglInput).getFullYear();
+
+const sameCategory = dataSurat.filter(s => {
+    const t = new Date(s.tanggal);
+    const input = new Date(tglInput);
+
+    return (
+        s.kode === selectedKode &&
+        t.getFullYear() === input.getFullYear() &&
+        t.getMonth() === input.getMonth()
+    );
+});
+
+    if (sameCategory.length > 0) {
+        // Ambil nomor terbesar
+        const maxNum = Math.max(...sameCategory.map(s => parseInt(s.urut) || 0));
+        document.getElementById('urut').value = maxNum + 1;
+    } else {
+        // Jika belum ada → mulai dari 1
+        document.getElementById('urut').value = 1;
+    }
+}
 
         function togglePass() {
             const input = document.getElementById('password');
@@ -548,21 +573,52 @@
         function logout() { localStorage.removeItem('desa_auth'); location.reload(); }
 
         async function fetchData() {
-            showLoader(true);
-            try {
-                const { data, error } = await db.from('surat').select('*').order('created_at', { ascending: false });
-                if (error) throw error;
-                dataSurat = data || [];
-removeDuplicateData(); // ← TAMBAHKAN DI SINI
-renderTable(dataSurat);
-            } catch (e) { 
-                console.error(e);
-                dataSurat = JSON.parse(localStorage.getItem('backup_surat') || '[]');
-                renderTable(dataSurat);
+    showLoader(true);
+    try {
+        const { data, error } = await db
+            .from('surat')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+    dataSurat = data || [];
+
+// await removeDuplicateData(); // NONAKTIFKAN (BAHAYA HAPUS DATA)
+
+// 🔥 WAJIB reload ulang setelah hapus
+const { data: cleanData } = await db
+    .from('surat')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+dataSurat = cleanData || [];
+
+        const seen = new Set();
+        let duplicates = [];
+
+        dataSurat.forEach(s => {
+            const key = `${s.kode}-${s.urut}`;
+            if (seen.has(key)) {
+                duplicates.push(key);
             }
-            showLoader(false);
+            seen.add(key);
+        });
+
+        if (duplicates.length > 0) {
+            console.warn("Ada duplikat:", duplicates);
+            showMsg("Warning", "Ada data nomor ganda di database!", "error");
         }
 
+        renderTable(dataSurat);
+
+    } catch (e) {
+        console.error(e);
+        dataSurat = JSON.parse(localStorage.getItem('backup_surat') || '[]');
+        renderTable(dataSurat);
+    }
+    showLoader(false);
+}
         function renderTable(displayData = dataSurat) {
             const body = document.getElementById('table-body');
             body.innerHTML = '';
@@ -573,7 +629,7 @@ renderTable(dataSurat);
                 tr.className = "hover:bg-slate-50 transition";
                 tr.innerHTML = `
                     <td class="p-4 font-semibold text-slate-500 text-xs">${s.tanggal}</td>
-                    <td class="p-4"><span class="bg-blue-50 text-blue-700 px-2 py-1 rounded font-bold text-xs">${s.kode}/${s.urut}</span></td>
+                    <td class="p-4"><span class="bg-blue-50 text-blue-700 px-2 py-1 rounded font-bold text-xs">${formatNomor(s)}</span></td>
                     <td class="p-4 text-xs font-medium text-slate-600">${s.perihal}</td>
                     <td class="p-4 text-center">
                         <button onclick="hapusSurat('${s.id}')" class="text-red-400 hover:text-red-600">
@@ -592,12 +648,19 @@ renderTable(dataSurat);
                 kode: document.getElementById('kat').value,
                urut: document.getElementById('urut').value,
                 perihal: document.getElementById('perihal').value,
-                created_at: new Date()
+                created_at: new Date().toISOString()
             };
-// CEK DUPLIKAT (kode + nomor urut)
-const isDuplicate = dataSurat.some(s => 
-    s.kode === payload.kode && String(s.urut) === String(payload.urut)
-);
+const isDuplicate = dataSurat.some(s => {
+    const t1 = new Date(s.tanggal);
+    const t2 = new Date(payload.tanggal);
+
+    return (
+        s.kode === payload.kode &&
+        Number(s.urut) === Number(payload.urut) &&
+        t1.getFullYear() === t2.getFullYear() &&
+        t1.getMonth() === t2.getMonth()
+    );
+});
 
 if (isDuplicate) {
     showMsg("Peringatan!", "Nomor surat sudah digunakan (duplikat). Data otomatis dibatalkan.", "error");
@@ -615,7 +678,7 @@ if (isDuplicate) {
                 if (error) throw error;
                 showMsg("Berhasil", "Nomor surat telah disimpan.");
                 document.getElementById('perihal').value = '';
-                document.getElementById('kat').value = '';
+                document.getElementById('tgl').valueAsDate = new Date();
                 document.getElementById('urut').value = '';
                 
                 // Reset quick search also
@@ -652,7 +715,7 @@ if (isDuplicate) {
     const val = document.getElementById('search-input').value.toLowerCase();
 
     const filtered = dataSurat.filter(s => {
-        const nomor = `${s.kode}/${s.urut}`; // gabungan nomor
+        const nomor = formatNomor(s); // gabungan nomor
 
         return (
             (s.perihal || '').toLowerCase().includes(val) ||
@@ -670,7 +733,7 @@ if (isDuplicate) {
             doc.text("LAPORAN PENOMORAN SURAT DESA RAMBATAN WETAN", 14, 20);
             doc.setFontSize(10);
             doc.text(`Dicetak pada: ${new Date().toLocaleString('id-ID')}`, 14, 28);
-            const tableData = dataSurat.map(s => [s.tanggal, `${s.kode}/${String(s.urut).padStart(3,'0')}`, s.perihal]);
+            const tableData = dataSurat.map(s => [s.tanggal, formatNomor(s), s.perihal]);
             doc.autoTable({
                 startY: 35,
                 head: [['Tanggal', 'Nomor Surat', 'Perihal / Keterangan']],
@@ -683,7 +746,7 @@ if (isDuplicate) {
 
         function downloadWord() {
             let tableHtml = `<table border="1" style="border-collapse: collapse; width: 100%;"><tr style="background-color: #f2f2f2;"><th>Tanggal</th><th>Nomor Surat</th><th>Perihal / Keterangan</th></tr>`;
-            dataSurat.forEach(s => { tableHtml += `<tr><td>${s.tanggal}</td><td>${s.kode}/${s.urut}</td><td>${s.perihal}</td></tr>`; });
+            dataSurat.forEach(s => { tableHtml += `<tr><td>${s.tanggal}</td><td>${formatNomor(s)}</td><td>${s.perihal}</td></tr>`; });
             tableHtml += `</table>`;
             const header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'></head><body><h2 style='text-align:center'>LAPORAN PENOMORAN SURAT DESA RAMBATAN WETAN</h2>";
             const source = header + tableHtml + "</body></html>";
@@ -734,26 +797,30 @@ if (isDuplicate) {
                 }
             }
         }
-        function removeDuplicateData() {
-    const seen = new Set(); // untuk menyimpan nomor yang sudah pernah ada
-    let removed = false;
+       async function removeDuplicateData() {
+    const seen = new Set();
+    let duplicates = [];
 
-    dataSurat = dataSurat.filter(s => {
-        const key = `${s.kode}-${s.urut}`; // gabungan unik
+    dataSurat.forEach(s => {
+        const key = `${s.kode}-${s.urut}-${new Date(s.tanggal).getFullYear()}`;
 
         if (seen.has(key)) {
-            removed = true;
-            return false; // ❌ ini yang bikin data duplikat dihapus
+            duplicates.push(s.id); // simpan ID yang duplikat
+        } else {
+            seen.add(key);
         }
-
-        seen.add(key);
-        return true; // ✅ data pertama tetap disimpan
     });
 
-    if (removed) {
-        showMsg("Peringatan!", "Ditemukan nomor ganda, data duplikat otomatis dihapus.", "error");
+    // Hapus ke database Supabase
+    if (duplicates.length > 0) {
+        console.warn("Menghapus duplikat:", duplicates);
+
+        await db.from('surat').delete().in('id', duplicates);
+
+        showMsg("Auto Clean", "Data duplikat berhasil dibersihkan dari database.");
     }
 }
+
     </script>
 </body>
 </html>
