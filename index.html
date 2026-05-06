@@ -520,17 +520,27 @@
 async function getNextNumberFromDB(kode, tanggal) {
     const tahun = new Date(tanggal).getFullYear();
 
-    const { data, error } = await db.rpc('ambil_nomor', {
-        p_kode: kode,
-        p_tahun: tahun
-    });
+    const { data, error } = await db
+        .from('surat')
+        .select('urut, tanggal')
+        .eq('kode', kode);
 
     if (error) {
-        console.error("RPC error:", error);
+        console.error("Error ambil data:", error);
         return 1;
     }
 
-    return data;
+    // Filter berdasarkan tahun yang sama
+    const filtered = (data || []).filter(s => {
+        return new Date(s.tanggal).getFullYear() === tahun;
+    });
+
+    if (filtered.length === 0) return 1;
+
+    // Ambil urut terbesar
+    const maxUrut = Math.max(...filtered.map(s => Number(s.urut) || 0));
+
+    return maxUrut + 1;
 }
         // ON LOAD CHECK SESSION
         window.onload = function() {
@@ -655,10 +665,11 @@ return `${s.kode}/${urut}/Pemdes-RW/${bulan}/${tahun}`;
         async function fetchData() {
     showLoader(true);
     try {
-        const { data, error } = await db
-            .from('surat')
-            .select('*')
-            .order('created_at', { ascending: false });
+       const { data, error } = await db
+    .from('surat')
+    .select('*')
+    .order('tanggal', { ascending: false })
+    .order('urut', { ascending: false });
 
         if (error) throw error;
 
