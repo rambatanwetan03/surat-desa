@@ -516,7 +516,22 @@
 
         let db = null;
         let dataSurat = [];
+// ✅ AMBIL NOMOR DARI DATABASE (ANTI BENTROK)
+async function getNextNumberFromDB(kode, tanggal) {
+    const tahun = new Date(tanggal).getFullYear();
 
+    const { data, error } = await db.rpc('ambil_nomor', {
+        p_kode: kode,
+        p_tahun: tahun
+    });
+
+    if (error) {
+        console.error("RPC error:", error);
+        return 1;
+    }
+
+    return data;
+}
         // ON LOAD CHECK SESSION
         window.onload = function() {
             if (localStorage.getItem('desa_auth') === 'true') {
@@ -578,30 +593,14 @@ return `${s.kode}/${urut}/Pemdes-RW/${bulan}/${tahun}`;
             }
         }
 
-        function autoSearchNumber() {
-    const selectedKode = document.getElementById('kat').value;
-    if (!selectedKode) return;
+     async function autoSearchNumber() {
+    const kode = document.getElementById('kat').value;
+    const tanggal = document.getElementById('tgl').value;
 
-    const tglInput = document.getElementById('tgl').value;
-    if (!tglInput) return;
+    if (!kode || !tanggal) return;
 
-    const inputYear = new Date(tglInput).getFullYear();
-
-    const sameCategory = dataSurat.filter(s => {
-        const t = new Date(s.tanggal);
-
-        return (
-            s.kode === selectedKode &&
-            t.getFullYear() === inputYear
-        );
-    });
-
-    if (sameCategory.length > 0) {
-        const maxNum = Math.max(...sameCategory.map(s => parseInt(s.urut) || 0));
-        document.getElementById('urut').value = maxNum + 1;
-    } else {
-        document.getElementById('urut').value = 1;
-    }
+    const next = await getNextNumberFromDB(kode, tanggal);
+    document.getElementById('urut').value = next;
 }
 
         function togglePass() {
@@ -725,12 +724,13 @@ dataSurat = cleanData || [];
         document.getElementById('surat-form').onsubmit = async (e) => {
             e.preventDefault();
             const payload = {
-                tanggal: document.getElementById('tgl').value,
-                kode: document.getElementById('kat').value,
-               urut: document.getElementById('urut').value,
-                perihal: document.getElementById('perihal').value,
-                created_at: new Date().toISOString()
-            };
+    tanggal: document.getElementById('tgl').value,
+    kode: document.getElementById('kat').value,
+    urut: document.getElementById('urut').value,
+    tahun: new Date(document.getElementById('tgl').value).getFullYear(), // ✅ TAMBAHAN
+    perihal: document.getElementById('perihal').value,
+    created_at: new Date().toISOString()
+};
 const isDuplicate = dataSurat.some(s => {
     const t1 = new Date(s.tanggal);
     const t2 = new Date(payload.tanggal);
@@ -755,11 +755,18 @@ if (isDuplicate) {
             showLoader(true);
             try {
                 const { error } = await db.from('surat').insert([payload]);
-                if (error) throw error;
-                showMsg("Berhasil", "Nomor surat telah disimpan.");
-                document.getElementById('perihal').value = '';
-                document.getElementById('tgl').valueAsDate = new Date();
-                document.getElementById('urut').value = '';
+
+if (error) {
+    if (error.message.includes('duplicate')) {
+        showMsg("Bentrok!", "Nomor sedang dipakai user lain, mengambil nomor baru...");
+
+        await autoSearchNumber(); // ambil nomor baru
+        showLoader(false);
+        return;
+    } else {
+        throw error;
+    }
+}
                 
                 // Reset quick search also
                 document.getElementById('quick-search-kat').value = '';
