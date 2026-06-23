@@ -442,7 +442,6 @@
 <option value="479.06">479.06 – Dispensasi Nikah</option>
 <option value="479.07">479.07 – Wali Nikah</option>
 <option value="479.08">479.08 – Cerai Mati</option>
-<option value="479.09">479.09 – Keterangan Beda Nama</option>
 <option value="479.10">479.10 – Keterangan Penghasilan Orang Tua</option>
 <option value="479.11">479.11 – Keterangan Janda/Duda</option>
 <option value="479.12">479.12 – Cerai Hidup</option>
@@ -817,27 +816,36 @@ return `${s.kode}/${urut}/Pemdes-RW/${bulan}/${tahun}`;
             }
         }
 
-     async function autoSearchNumber() {
-    const kode = document.getElementById('kat').value;
-    const tanggal = document.getElementById('tgl').value;
+    async function autoSearchNumber() {
+        const kode = document.getElementById('kat').value;
+        const tanggal = document.getElementById('tgl').value;
 
-    if (!kode || !tanggal) return;
+        if (!kode) {
+            renderTable(dataSurat); // Kembalikan semua data ke tabel jika kode klasifikasi kosong
+            return;
+        }
 
-    // Hitung secara otomatis dari data lokal terlebih dahulu (responsif, anti delay, dan mendukung offline)
-    const tahun = new Date(tanggal).getFullYear();
-    const filteredLocal = dataSurat.filter(s => s.kode === kode && new Date(s.tanggal).getFullYear() === tahun);
-    
-    let next = 1;
-    if (filteredLocal.length > 0) {
-        const maxUrut = Math.max(...filteredLocal.map(s => Number(s.urut) || 0));
-        next = maxUrut + 1;
-    } else {
-        // Fallback panggil database jika data lokal belum sinkron/kosong
-        next = await getNextNumberFromDB(kode, tanggal);
+        if (!tanggal) return;
+
+        // Hitung secara otomatis dari data lokal terlebih dahulu (responsif, anti delay, dan mendukung offline)
+        const tahun = new Date(tanggal).getFullYear();
+        const filteredLocal = dataSurat.filter(s => s.kode === kode && new Date(s.tanggal).getFullYear() === tahun);
+        
+        let next = 1;
+        if (filteredLocal.length > 0) {
+            const maxUrut = Math.max(...filteredLocal.map(s => Number(s.urut) || 0));
+            next = maxUrut + 1;
+        } else {
+            // Fallback panggil database jika data lokal belum sinkron/kosong
+            next = await getNextNumberFromDB(kode, tanggal);
+        }
+
+        document.getElementById('urut').value = next;
+
+        // TAMBAHAN: Otomatis memfilter tabel penomoran terakhir di bawah agar sinkron dengan klasifikasi surat yang terpilih
+        const filtered = dataSurat.filter(s => s.kode === kode);
+        renderTable(filtered);
     }
-
-    document.getElementById('urut').value = next;
-}
 
         function togglePass() {
             const input = document.getElementById('password');
@@ -900,8 +908,6 @@ return `${s.kode}/${urut}/Pemdes-RW/${bulan}/${tahun}`;
         if (error) throw error;
 
     dataSurat = data || [];
-
-// await removeDuplicateData(); // NONAKTIFKAN (BAHAYA HAPUS DATA)
 
 // 🔥 WAJIB reload ulang setelah hapus
 const { data: cleanData } = await db
