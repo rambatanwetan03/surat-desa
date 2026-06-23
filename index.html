@@ -763,6 +763,7 @@ return `${s.kode}/${urut}/Pemdes-RW/${bulan}/${tahun}`;
         /**
          * FITUR PENCARIAN OTOMATIS (UPDATED)
          * Memfilter pilihan dropdown dan otomatis memilih jika ditemukan kecocokan
+         * Serta memfilter tabel data penomoran terakhir di bawahnya.
          */
         function filterKlasifikasi() {
             const input = document.getElementById('quick-search-kat');
@@ -774,6 +775,7 @@ return `${s.kode}/${urut}/Pemdes-RW/${bulan}/${tahun}`;
             if (filter === "") {
                 options.forEach(opt => opt.style.display = "");
                 optgroups.forEach(group => group.style.display = "");
+                renderTable(dataSurat); // Kembalikan semua data ke tabel jika input kosong
                 return;
             }
 
@@ -800,6 +802,18 @@ return `${s.kode}/${urut}/Pemdes-RW/${bulan}/${tahun}`;
             if (firstMatchValue) {
                 select.value = firstMatchValue;
                 autoSearchNumber(); // Trigger update nomor urut otomatis
+                
+                // Ikut memfilter tabel data penomoran terakhir sesuai kode klasifikasi yang terpilih
+                const filtered = dataSurat.filter(s => s.kode === select.value);
+                renderTable(filtered);
+            } else {
+                // Jika tidak ada kecocokan langsung, filter tabel berdasarkan pencarian teks di perihal atau nama klasifikasi
+                const filtered = dataSurat.filter(s => {
+                    const matchedOption = Array.from(options).find(opt => opt.value === s.kode);
+                    const optText = matchedOption ? matchedOption.textContent.toLowerCase() : '';
+                    return optText.includes(filter) || (s.perihal || '').toLowerCase().includes(filter);
+                });
+                renderTable(filtered);
             }
         }
 
@@ -809,7 +823,19 @@ return `${s.kode}/${urut}/Pemdes-RW/${bulan}/${tahun}`;
 
     if (!kode || !tanggal) return;
 
-    const next = await getNextNumberFromDB(kode, tanggal);
+    // Hitung secara otomatis dari data lokal terlebih dahulu (responsif, anti delay, dan mendukung offline)
+    const tahun = new Date(tanggal).getFullYear();
+    const filteredLocal = dataSurat.filter(s => s.kode === kode && new Date(s.tanggal).getFullYear() === tahun);
+    
+    let next = 1;
+    if (filteredLocal.length > 0) {
+        const maxUrut = Math.max(...filteredLocal.map(s => Number(s.urut) || 0));
+        next = maxUrut + 1;
+    } else {
+        // Fallback panggil database jika data lokal belum sinkron/kosong
+        next = await getNextNumberFromDB(kode, tanggal);
+    }
+
     document.getElementById('urut').value = next;
 }
 
@@ -902,11 +928,13 @@ dataSurat = cleanData || [];
         }
 
         renderTable(dataSurat);
+        autoSearchNumber(); // Otomatis perbarui input nomor urut setelah data selesai dimuat
 
     } catch (e) {
         console.error(e);
         dataSurat = JSON.parse(localStorage.getItem('backup_surat') || '[]');
         renderTable(dataSurat);
+        autoSearchNumber(); // Otomatis perbarui input nomor urut dalam mode offline
     }
     showLoader(false);
 }
